@@ -26,6 +26,7 @@ export const API_ENDPOINTS = {
   
   getUsers: `${BASE_URL}/users`,
   getCurrentUser: `${BASE_URL}/users/me`,
+  acknowledgeInoutUnlock: `${BASE_URL}/users/me/inout-unlock-seen`,
   getUserById: (userId) => `${BASE_URL}/users/${userId}`,
   updateUser: (userId) => `${BASE_URL}/users/${userId}`,
   updateSalary: (userId) => `${BASE_URL}/users/${userId}/salary`,

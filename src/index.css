@@ -96,3 +96,31 @@ code {
 .ct-tone-danger:hover {
   background: #b91c1c;
 }
+
+.Toastify__toast.inout-unlock-toast {
+  background: #159C8E;
+  color: #fff;
+  border-radius: 12px;
+  min-height: auto;
+}
+.inout-open-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #fff;
+}
+.inout-open-text {
+  margin: 0.35rem 0 0.75rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: #fff;
+}
+.inout-open-btn {
+  border: none;
+  border-radius: 8px;
+  background: #fff;
+  color: #0F7A6E;
+  font-weight: 700;
+  padding: 0.45rem 0.95rem;
+  cursor: pointer;
+}

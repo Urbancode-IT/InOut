@@ -4,7 +4,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { API_ENDPOINTS } from '../../utils/api';
 import { confirmToast } from '../../utils/interactiveToast';
-import { isAttendanceLockedUser } from '../../utils/attendanceLock';
+import { attendanceLockMessageForUser, isAttendanceLockedUser } from '../../utils/attendanceLock';
 import UserCard from '../../components/admin-dashboard/allusers/UserCard';
 import Loader from '../../components/admin-dashboard/common/Loader';
 
@@ -52,7 +52,16 @@ const UserDetail = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setUser((prev) =>
-        prev ? { ...prev, attendanceLocked: false, isAttendanceLocked: false } : prev
+        prev
+          ? {
+              ...prev,
+              attendanceLocked: false,
+              isAttendanceLocked: false,
+              inoutBlocked: false,
+              inoutBlockedAt: null,
+              inoutBlockedForDate: null,
+            }
+          : prev
       );
       toast.success(`Attendance unlocked for ${user.name}`);
       await fetchUser();
@@ -90,9 +99,9 @@ const UserDetail = () => {
                 }}
               >
                 <div>
-                  <strong style={{ color: '#9a3412' }}>Attendance Locked</strong>
+                  <strong style={{ color: '#9a3412' }}>In-Out Locked</strong>
                   <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: '#9a3412' }}>
-                    This user cannot check in until attendance is unlocked.
+                    {attendanceLockMessageForUser(user) || 'This user cannot check in or check out until an admin unlocks them.'}
                   </p>
                 </div>
                 <button

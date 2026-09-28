@@ -58,6 +58,47 @@
   background: var(--dash-accent-hover);
 }
 
+.dash-lock-count {
+  background: #fff;
+  color: var(--dash-accent);
+  font-weight: 700;
+  font-size: 0.75rem;
+  line-height: 1;
+  min-width: 1.35rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  text-align: center;
+}
+
+.dash-lock-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  background: var(--dash-accent);
+  color: #fff;
+}
+
+.dash-lock-unlock {
+  border: none;
+  border-radius: 0.4rem;
+  background: var(--dash-accent);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  cursor: pointer;
+}
+
+.dash-lock-unlock:hover {
+  background: var(--dash-accent-hover);
+}
+
+.dash-lock-unlock:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .dash-alert {
   margin-bottom: 1rem;
   padding: 0.75rem 1rem;

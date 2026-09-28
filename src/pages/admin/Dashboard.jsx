@@ -6,6 +6,7 @@ import DashboardCards from '../../components/admin-dashboard/dashboard/Dashboard
 import Loader from '../../components/admin-dashboard/common/Loader';
 import { FiSearch, FiCalendar, FiRefreshCw } from 'react-icons/fi';
 import AbsentUsersList from '../../components/admin-dashboard/dashboard/AbsentUsersList';
+import LockedUsersPanel from '../../components/admin-dashboard/dashboard/LockedUsersPanel';
 import ReportGenerator from '../../components/admin-dashboard/dashboard/ReportGenerator';
 import { BRANCH_OPTIONS, logMatchesBranchFilter, matchesBranchFilter } from '../../utils/branches';
 import { isSameLocalDay, localDateYMD } from '../../utils/localDate';
@@ -192,11 +193,32 @@ const Dashboard = () => {
               : `Dashboard • ${dateLabel}`}
           </p>
         </div>
-        <ReportGenerator
-          logs={filteredLogs}
-          allUsers={allUsers}
-          selectedDate={dateFilter}
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <LockedUsersPanel
+            users={allUsers}
+            onUnlocked={(userId) => {
+              setAllUsers((prev) =>
+                prev.map((user) =>
+                  user._id === userId
+                    ? {
+                        ...user,
+                        attendanceLocked: false,
+                        isAttendanceLocked: false,
+                        inoutBlocked: false,
+                        inoutBlockedAt: null,
+                        inoutBlockedForDate: null,
+                      }
+                    : user
+                )
+              );
+            }}
+          />
+          <ReportGenerator
+            logs={filteredLogs}
+            allUsers={allUsers}
+            selectedDate={dateFilter}
+          />
+        </div>
       </div>
 
       {summary && <DashboardCards data={summary} isToday={isSelectedToday} />}

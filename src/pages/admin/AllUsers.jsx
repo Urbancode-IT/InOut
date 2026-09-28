@@ -17,7 +17,7 @@ import {
   matchesBranchFilter,
   branchBadgeClass,
 } from '../../utils/branches';
-import { isAttendanceLockedUser } from '../../utils/attendanceLock';
+import { attendanceLockReasonLabel, isAttendanceLockedUser } from '../../utils/attendanceLock';
 
 // module-level cache — survives component unmount/remount during navigation
 let _cachedUsers = null;
@@ -176,7 +176,16 @@ const AllUsers = () => {
       );
       setUsers((prev) => {
         const next = prev.map((u) =>
-          u._id === user._id ? { ...u, attendanceLocked: false, isAttendanceLocked: false } : u
+          u._id === user._id
+            ? {
+                ...u,
+                attendanceLocked: false,
+                isAttendanceLocked: false,
+                inoutBlocked: false,
+                inoutBlockedAt: null,
+                inoutBlockedForDate: null,
+              }
+            : u
         );
         _cachedUsers = next;
         return next;
@@ -422,7 +431,7 @@ const AllUsers = () => {
                     {user.isActive ? 'Active' : 'Inactive'}
                   </span>
                   {isAttendanceLockedUser(user) && (
-                    <span className="uc-status-badge is-locked" title="Attendance locked — incomplete profile">
+                    <span className="uc-status-badge is-locked" title={attendanceLockReasonLabel(user)}>
                       Locked
                     </span>
                   )}

@@ -28,11 +28,13 @@ import { alertToast } from "../../utils/interactiveToast";
 import {
   ATTENDANCE_LOCKED_MESSAGE,
   PROFILE_INCOMPLETE_ENTRY_MESSAGE,
+  attendanceLockMessageForUser,
   formatMissingProfileFields,
   getAttendanceLockError,
   getMissingProfileFieldsFromUser,
   getProfileIncompletePayload,
   isAttendanceLockedUser,
+  isInoutBlockedUser,
   isProfileIncompleteUser,
   mergeUserRecords,
   unwrapUserPayload,
@@ -74,6 +76,7 @@ function AttendancePage() {
   const [comment, setComment] = useState('');
   const [holidays, setHolidays] = useState([]);
   const [attendanceLocked, setAttendanceLocked] = useState(false);
+  const [lockMessage, setLockMessage] = useState("");
   const [showProfileIncompleteModal, setShowProfileIncompleteModal] = useState(false);
   const [missingProfileFields, setMissingProfileFields] = useState([]);
   const [attendanceReady, setAttendanceReady] = useState(false);
@@ -84,6 +87,7 @@ function AttendancePage() {
   const typeRef = useRef(null);
   const showCalendarModalRef = useRef(false);
   const attendanceLockedRef = useRef(false);
+  const lockMessageRef = useRef("");
   const autoCameraOpenedRef = useRef(false);
   /** True if Profile Incomplete was already shown for this capture → submit cycle. */
   const profileIncompleteWarnedRef = useRef(false);
@@ -150,6 +154,16 @@ function AttendancePage() {
     }
   };
 
+  const applyLockFromUser = (userData) => {
+    const locked = isAttendanceLockedUser(userData);
+    const message = attendanceLockMessageForUser(userData);
+    setAttendanceLocked(locked);
+    attendanceLockedRef.current = locked;
+    lockMessageRef.current = message;
+    setLockMessage(message);
+    return locked;
+  };
+
   const fetchUser = async () => {
     const token = localStorage.getItem("token");
     try {
@@ -175,9 +189,7 @@ function AttendancePage() {
 
       setUser(userData);
       if (isSelf) {
-        const locked = isAttendanceLockedUser(userData);
-        setAttendanceLocked(locked);
-        attendanceLockedRef.current = locked;
+        applyLockFromUser(userData);
         setMissingProfileFields(getMissingProfileFieldsFromUser(userData));
       }
     } catch (err) {
@@ -249,8 +261,8 @@ function AttendancePage() {
     if (!isSelf) return;
     if (attendanceLockedRef.current) {
       await alertToast({
-        title: "Attendance Locked",
-        text: ATTENDANCE_LOCKED_MESSAGE,
+        title: "In-Out Locked",
+        text: lockMessageRef.current || ATTENDANCE_LOCKED_MESSAGE,
         confirmText: "OK",
         tone: "danger",
       });
@@ -334,9 +346,7 @@ function AttendancePage() {
         /* optional */
       }
       setUser(userData);
-      const locked = isAttendanceLockedUser(userData);
-      setAttendanceLocked(locked);
-      attendanceLockedRef.current = locked;
+      applyLockFromUser(userData);
     } catch {
       /* use cached user */
     }
@@ -348,8 +358,8 @@ function AttendancePage() {
       setComment("");
       stopCamera();
       await alertToast({
-        title: "Attendance Locked",
-        text: ATTENDANCE_LOCKED_MESSAGE,
+        title: "In-Out Locked",
+        text: lockMessageRef.current || attendanceLockMessageForUser(userData) || ATTENDANCE_LOCKED_MESSAGE,
         confirmText: "OK",
         tone: "danger",
       });
@@ -451,6 +461,8 @@ function AttendancePage() {
         if (lock.locked) {
           setAttendanceLocked(true);
           attendanceLockedRef.current = true;
+          lockMessageRef.current = lock.message || ATTENDANCE_LOCKED_MESSAGE;
+          setLockMessage(lock.message || ATTENDANCE_LOCKED_MESSAGE);
           await alertToast({
             title: "Attendance Locked",
             text: lock.message || ATTENDANCE_LOCKED_MESSAGE,
@@ -891,12 +903,24 @@ const remainingWorkingDays = Math.max(0, totalWorkingDays - presentDays);
       />
 
       {isSelf && attendanceLocked && !isCapturing && (
-        <p className="att-shake-hint" style={{ color: '#b91c1c', fontWeight: 600 }}>
-          Attendance locked — complete your profile
-          {formatMissingProfileFields(missingProfileFields).length > 0
-            ? ` (missing: ${formatMissingProfileFields(missingProfileFields).join(', ')})`
-            : ''} or contact the administrator.
-        </p>
+        <div className="att-lock-banner" role="status">
+          <p className="att-lock-banner-title">
+            <FiXCircle />
+            In-Out Locked
+          </p>
+          <p className="att-lock-banner-text">
+            {isInoutBlockedUser(user)
+              ? (lockMessage || "You did not check in, check out, or submit a leave form. Contact an admin to unlock.")
+              : (
+                <>
+                  Complete your profile
+                  {formatMissingProfileFields(missingProfileFields).length > 0
+                    ? ` (missing: ${formatMissingProfileFields(missingProfileFields).join(", ")})`
+                    : ""} or contact an admin to unlock.
+                </>
+              )}
+          </p>
+        </div>
       )}
 
       {isSelf && type && !isCapturing && !attendanceLocked && (

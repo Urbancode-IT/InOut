@@ -60,15 +60,55 @@ function Login() {
       if (response.status !== 200) throw new Error(response.data?.error || 'Login failed');
 
       const token = response.data.token;
+      const inoutUnlockNotice = response.data.inoutUnlockNotice === true;
       localStorage.setItem('token', token);
       const decoded = jwtDecode(token);
       const destination = getSafeReturnPath(returnFrom, decoded.role);
 
-      toast.success('Welcome! Login successful. Redirecting...');
+      if (inoutUnlockNotice && decoded.role !== 'admin') {
+        await new Promise((resolve) => {
+          toast(
+            ({ closeToast }) => (
+              <div>
+                <p className="inout-open-title">In-Out is open</p>
+                <p className="inout-open-text">
+                  Admin unlocked your In-Out. You can check in and check out now.
+                </p>
+                <button
+                  type="button"
+                  className="inout-open-btn"
+                  onClick={() => {
+                    closeToast();
+                    resolve();
+                  }}
+                >
+                  OK
+                </button>
+              </div>
+            ),
+            {
+              autoClose: false,
+              closeOnClick: false,
+              closeButton: false,
+              draggable: false,
+              icon: false,
+              className: 'inout-unlock-toast',
+            }
+          );
+        });
+        try {
+          await axios.post(API_ENDPOINTS.acknowledgeInoutUnlock, {}, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        } catch {
+          /* notice can show again on the next login if this fails */
+        }
+      } else {
+        toast.success('Welcome! Login successful. Redirecting...');
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
 
-      setTimeout(() => {
-        navigate(destination, { replace: true });
-      }, 2000);
+      navigate(destination, { replace: true });
 
     } catch (err) {
       toast.error(`Login Failed: ${err?.message || 'Something went wrong.'}`);

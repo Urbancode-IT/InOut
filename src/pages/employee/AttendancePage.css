@@ -583,6 +583,40 @@
   cursor: not-allowed;
 }
 
+.att-lock-banner {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0.25rem 0 0.75rem;
+  padding: 1rem 1rem 0.95rem;
+  border-radius: 0.5rem;
+  border: 1px solid #fecaca;
+  background: var(--att-red-bg);
+  color: #991b1b;
+  text-align: center;
+}
+
+.att-lock-banner-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.att-lock-banner-text {
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+.dark .att-lock-banner {
+  border-color: #991b1b;
+  color: #fecaca;
+}
+
 .att-shake-hint {
   margin: 0.35rem 0 0.75rem;
   text-align: center;

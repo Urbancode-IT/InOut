@@ -5,6 +5,9 @@ export const isApiTrue = (value) =>
 export const ATTENDANCE_LOCKED_MESSAGE =
   'Your account is locked because your profile is incomplete. Please complete the missing fields or contact the administrator.';
 
+export const INOUT_BLOCKED_MESSAGE =
+  'Your In-Out is locked because you did not check in, check out, or submit a leave request. Only an admin can unlock it.';
+
 export const PROFILE_INCOMPLETE_ENTRY_MESSAGE =
   'Your profile is incomplete. Please complete your profile before checking in.';
 
@@ -122,6 +125,9 @@ export const mergeUserRecords = (primary, secondary) => {
     },
     attendanceLocked: a.attendanceLocked ?? b.attendanceLocked,
     isAttendanceLocked: a.isAttendanceLocked ?? b.isAttendanceLocked,
+    inoutBlocked: a.inoutBlocked ?? b.inoutBlocked,
+    inoutBlockedAt: a.inoutBlockedAt ?? b.inoutBlockedAt,
+    inoutBlockedForDate: a.inoutBlockedForDate ?? b.inoutBlockedForDate,
     profileIncomplete: a.profileIncomplete ?? b.profileIncomplete,
     profileComplete: a.profileComplete ?? b.profileComplete,
     missingFields: missingA.length ? missingA : missingB,
@@ -189,13 +195,22 @@ export const getAttendanceLockError = (error) => {
     body?.data?.code ||
     body?.errorCode;
 
-  if (status === 403 && code === 'ATTENDANCE_LOCKED') {
+  if (status === 403 && (code === 'ATTENDANCE_LOCKED' || code === 'INOUT_BLOCKED')) {
+    if (code === 'INOUT_BLOCKED') {
+      return {
+        locked: true,
+        reason: 'missed-day',
+        missingFields: [],
+        message: body?.message || body?.error?.message || INOUT_BLOCKED_MESSAGE,
+      };
+    }
     const missingFields = Array.isArray(body?.missingFields) ? body.missingFields : [];
     const labels = formatMissingProfileFields(missingFields);
     const missingText =
       labels.length > 0 ? ` Missing: ${labels.join(', ')}.` : '';
     return {
       locked: true,
+      reason: 'profile',
       missingFields,
       message:
         (body?.message ||
@@ -207,5 +222,29 @@ export const getAttendanceLockError = (error) => {
   return { locked: false };
 };
 
+export const isInoutBlockedUser = (user) => isApiTrue(user?.inoutBlocked);
+
 export const isAttendanceLockedUser = (user) =>
-  isApiTrue(user?.attendanceLocked) || isApiTrue(user?.isAttendanceLocked);
+  isApiTrue(user?.attendanceLocked) ||
+  isApiTrue(user?.isAttendanceLocked) ||
+  isInoutBlockedUser(user);
+
+export const attendanceLockMessageForUser = (user) => {
+  if (isInoutBlockedUser(user)) return INOUT_BLOCKED_MESSAGE;
+  if (isApiTrue(user?.attendanceLocked) || isApiTrue(user?.isAttendanceLocked)) {
+    return ATTENDANCE_LOCKED_MESSAGE;
+  }
+  return '';
+};
+
+export const attendanceLockReasonLabel = (user) => {
+  const reasons = [];
+  if (isInoutBlockedUser(user)) {
+    const date = user?.inoutBlockedForDate ? ` (${user.inoutBlockedForDate})` : '';
+    reasons.push(`Missed check-in, check-out, and leave${date}`);
+  }
+  if (isApiTrue(user?.attendanceLocked) || isApiTrue(user?.isAttendanceLocked)) {
+    reasons.push('Incomplete profile');
+  }
+  return reasons.join(' · ') || 'Locked';
+};
