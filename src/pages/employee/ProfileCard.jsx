@@ -280,7 +280,12 @@ export default function ProfileCard() {
       toast.success('Aadhaar Card uploaded successfully');
     } catch (err) {
       console.error('Aadhaar upload failed', err);
-      toast.error(err.response?.data?.message || 'Failed to upload Aadhaar Card');
+      const errMsg =
+        err.response?.data?.message ||
+        err.response?.data?.msg ||
+        err.response?.data?.error ||
+        'Failed to upload Aadhaar Card';
+      toast.error(errMsg);
     } finally {
       setUploadingAadhar(false);
       e.target.value = '';
