@@ -75,6 +75,7 @@ export const buildUserUpdatePayload = (form) => {
     pan: synced.pan || '',
     uan: synced.uan || '',
     esiNumber: synced.esiNumber || '',
+    aadharNumber: synced.aadharNumber || '',
   };
 };
 

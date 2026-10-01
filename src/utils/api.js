@@ -36,6 +36,7 @@ export const API_ENDPOINTS = {
   getProfile: `${BASE_URL}/users/profile`,
   updateProfile: `${BASE_URL}/users/profile`,
   uploadProfile: `${BASE_URL}/users/profile/upload`,
+  uploadAadhar: `${BASE_URL}/users/profile/upload-aadhar`,
   uploadLetter: `${BASE_URL}/users/letters/upload`,
   // getUserById: (id) => `${BASE_URL}/users/${id}`,
   // getAttendanceByUser: (id) => `${BASE_URL}/attendance/user/${id}`,

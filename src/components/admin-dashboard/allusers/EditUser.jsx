@@ -45,7 +45,46 @@ const EditUser = ({ userId, onClose, onUpdated, pageMode = false }) => {
   });
   const [showPasswordFields, setShowPasswordFields] = useState(false);
   const [passwordData, setPasswordData] = useState({ newPassword: '', confirmPassword: '' });
+  const [uploadingAadhar, setUploadingAadhar] = useState(false);
   const navigate = useNavigate();
+
+  const handleAadharUpload = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+    if (!allowedMimes.includes(file.type)) {
+      toast.warning('Invalid file type: Only JPG/PNG images and PDF documents are allowed.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.warning('File too large: Maximum allowed size for Aadhaar Card is 5 MB.');
+      return;
+    }
+
+    try {
+      setUploadingAadhar(true);
+      const token = localStorage.getItem('token');
+      const fd = new FormData();
+      fd.append('aadharCard', file);
+      if (userId) fd.append('userId', userId);
+      const res = await axios.post(API_ENDPOINTS.uploadAadhar, fd, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      const updatedCard = res.data?.aadharCard;
+      setForm((prev) => ({ ...prev, aadharCard: updatedCard }));
+      toast.success('Aadhaar Card uploaded successfully');
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || 'Failed to upload Aadhaar Card');
+    } finally {
+      setUploadingAadhar(false);
+      e.target.value = '';
+    }
+  };
 
   const isPage = pageMode || !onClose;
 
@@ -405,9 +444,62 @@ const EditUser = ({ userId, onClose, onUpdated, pageMode = false }) => {
                 <input type="text" name="uan" value={form.uan || ''} onChange={handleChange} placeholder="UAN" />
               </div>
             </div>
-            <div className="uc-form-field">
-              <label>ESI Number</label>
-              <input type="text" name="esiNumber" value={form.esiNumber || ''} onChange={handleChange} placeholder="ESI Number" />
+            <div className="uc-form-grid-2">
+              <div className="uc-form-field" style={{ marginBottom: 0 }}>
+                <label>ESI Number</label>
+                <input type="text" name="esiNumber" value={form.esiNumber || ''} onChange={handleChange} placeholder="ESI Number" />
+              </div>
+              <div className="uc-form-field" style={{ marginBottom: 0 }}>
+                <label>Aadhaar Number</label>
+                <input type="text" name="aadharNumber" value={form.aadharNumber || ''} onChange={handleChange} placeholder="Aadhaar Number" />
+              </div>
+            </div>
+            <div className="uc-form-field" style={{ marginTop: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Aadhaar Card Document</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                {form.aadharCard?.url ? (
+                  <>
+                    <span style={{ padding: '4px 12px', borderRadius: '12px', background: '#dcfce7', color: '#15803d', fontWeight: 600, fontSize: '0.8rem' }}>
+                      ✓ Uploaded
+                    </span>
+                    <a
+                      href={form.aadharCard.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="uc-btn uc-btn-primary"
+                      style={{ textDecoration: 'none', padding: '6px 14px', fontSize: '0.85rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      View / Download Document
+                    </a>
+                    <label className="uc-btn uc-btn-outline" style={{ padding: '6px 14px', fontSize: '0.85rem', cursor: 'pointer', margin: 0 }}>
+                      {uploadingAadhar ? 'Uploading...' : 'Replace File'}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/jpg,application/pdf"
+                        disabled={uploadingAadhar}
+                        onChange={handleAadharUpload}
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+                  </>
+                ) : (
+                  <>
+                    <span style={{ padding: '4px 12px', borderRadius: '12px', background: '#fef3c7', color: '#b45309', fontWeight: 600, fontSize: '0.8rem' }}>
+                      Not Uploaded
+                    </span>
+                    <label className="uc-btn uc-btn-primary" style={{ padding: '6px 16px', fontSize: '0.85rem', cursor: 'pointer', margin: 0 }}>
+                      {uploadingAadhar ? 'Uploading...' : 'Upload Aadhaar Card'}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/jpg,application/pdf"
+                        disabled={uploadingAadhar}
+                        onChange={handleAadharUpload}
+                        style={{ display: 'none' }}
+                      />
+                    </label>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 

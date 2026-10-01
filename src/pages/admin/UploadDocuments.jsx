@@ -137,10 +137,49 @@ const UploadDocuments = () => {
         <div className="uc-list-panel">
           <div className="uc-list-header">
             <h2>Documents for {selectedUser?.name}</h2>
-            <p>{documents.length} file{documents.length === 1 ? '' : 's'} uploaded</p>
+            <p>{documents.length + (selectedUser?.aadharCard?.url ? 1 : 0)} file{(documents.length + (selectedUser?.aadharCard?.url ? 1 : 0)) === 1 ? '' : 's'} uploaded</p>
           </div>
 
-          {documents.length === 0 ? (
+          {selectedUser?.aadharCard?.url && (
+            <div
+              className="uc-list-item"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '1rem',
+                backgroundColor: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                marginBottom: '0.75rem',
+                borderRadius: '8px',
+                padding: '0.75rem 1rem'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0 }}>
+                <FiFile style={{ color: '#166534', flexShrink: 0, fontSize: '1.25rem' }} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#166534' }}>
+                    Aadhaar Card Document {selectedUser.aadharNumber ? `(${selectedUser.aadharNumber})` : ''}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#15803d' }}>
+                    Uploaded: {selectedUser.aadharCard.uploadedAt ? new Date(selectedUser.aadharCard.uploadedAt).toLocaleString() : 'N/A'}
+                  </div>
+                </div>
+              </div>
+              <a
+                href={selectedUser.aadharCard.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="uc-btn uc-btn-primary"
+                style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <FiDownload />
+                View / Download Aadhaar
+              </a>
+            </div>
+          )}
+
+          {documents.length === 0 && !selectedUser?.aadharCard?.url ? (
             <div className="uc-empty-msg">No documents uploaded yet.</div>
           ) : (
             documents.map((doc, idx) => (

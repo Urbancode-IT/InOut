@@ -14,6 +14,7 @@ import {
   FiChevronDown,
   FiX,
   FiDroplet,
+  FiFileText,
 } from 'react-icons/fi';
 import urbancodeLogoSrc from '../../../assets/uclogo.png';
 import jobzenterLogoSrc from '../../../assets/jzlogo.png';
@@ -263,6 +264,27 @@ const UserCard = ({ user, className = '', onEdit, forceExpanded = false, onClose
                 <CalendarIcon size={18} color="#6b7280" style={{ flexShrink: 0, marginTop: 2 }} />
                 <span>DOB: {user.dateOfBirth ? formatDate(user.dateOfBirth) : 'N/A'}</span>
               </div>
+              {(user.aadharNumber || user.aadharCard?.url) && (
+                <div className="uc-profile-row">
+                  <FiFileText size={18} color="#159C8E" style={{ flexShrink: 0, marginTop: 2 }} />
+                  <div>
+                    {user.aadharNumber && <div><strong>Aadhaar:</strong> {user.aadharNumber}</div>}
+                    {user.aadharCard?.url ? (
+                      <a
+                        href={user.aadharCard.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: '#0f766e', fontWeight: 600, fontSize: '0.85rem', textDecoration: 'underline' }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        View Aadhaar Card Document
+                      </a>
+                    ) : (
+                      <span style={{ fontSize: '0.8rem', color: '#9a3412' }}>Aadhaar Card Document Not Uploaded</span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

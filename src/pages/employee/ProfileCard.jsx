@@ -32,6 +32,8 @@ export default function ProfileCard() {
     pan: "",
     uan: "",
     esiNumber: "",
+    aadharNumber: "",
+    aadharCard: null,
     rolesAndResponsibility: [],
     skills: [],
     bankDetails: {
@@ -45,6 +47,8 @@ export default function ProfileCard() {
   const [editing, setEditing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [uploadingAadhar, setUploadingAadhar] = useState(false);
+  const [viewAadharModal, setViewAadharModal] = useState(false);
   const [isEditingAll, setIsEditingAll] = useState(false);
   const [originalProfile, setOriginalProfile] = useState(null);
   const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
@@ -84,6 +88,8 @@ export default function ProfileCard() {
           pan: data.pan || "",
           uan: data.uan || "",
           esiNumber: data.esiNumber || "",
+          aadharNumber: data.aadharNumber || "",
+          aadharCard: data.aadharCard || null,
           rolesAndResponsibility: Array.isArray(data.rolesAndResponsibility) ? data.rolesAndResponsibility : [],
           skills: Array.isArray(data.skills) ? data.skills : [],
           bankDetails: {
@@ -239,6 +245,45 @@ export default function ProfileCard() {
     } catch (err) {
       console.error('Failed to remove profile pic', err);
       try { toast.error('Remove failed: Could not remove profile picture'); } catch (e) {}
+    }
+  };
+
+  const handleAadharUpload = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+
+    const allowedMimes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
+    if (!allowedMimes.includes(file.type)) {
+      toast.warning('Invalid file type: Only JPG/PNG images and PDF documents are allowed.');
+      return;
+    }
+    const maxAadharSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxAadharSize) {
+      toast.warning('File too large: Maximum allowed size for Aadhaar Card is 5 MB.');
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    const form = new FormData();
+    form.append('aadharCard', file);
+    setUploadingAadhar(true);
+    try {
+      const res = await axios.post(API_ENDPOINTS.uploadAadhar, form, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      const updatedCard = res.data?.aadharCard;
+      setProfile((prev) => ({ ...prev, aadharCard: updatedCard }));
+      setOriginalProfile((prev) => (prev ? { ...prev, aadharCard: updatedCard } : prev));
+      toast.success('Aadhaar Card uploaded successfully');
+    } catch (err) {
+      console.error('Aadhaar upload failed', err);
+      toast.error(err.response?.data?.message || 'Failed to upload Aadhaar Card');
+    } finally {
+      setUploadingAadhar(false);
+      e.target.value = '';
     }
   };
 
@@ -706,7 +751,7 @@ export default function ProfileCard() {
             </div>
             <div className="banking-info">
               <div className="info-row">
-                Emp Grade:
+                <strong>Emp Grade:</strong>
                 {(editing === 'statutory' || isEditingAll) ? (
                   <input
                     type="text"
@@ -719,7 +764,7 @@ export default function ProfileCard() {
                 )}
               </div>
               <div className="info-row">
-                PAN:
+                <strong>PAN:</strong>
                 {(editing === 'statutory' || isEditingAll) ? (
                   <input
                     type="text"
@@ -732,7 +777,7 @@ export default function ProfileCard() {
                 )}
               </div>
               <div className="info-row">
-                PF-UAN:
+                <strong>PF-UAN:</strong>
                 {(editing === 'statutory' || isEditingAll) ? (
                   <input
                     type="text"
@@ -745,7 +790,7 @@ export default function ProfileCard() {
                 )}
               </div>
               <div className="info-row">
-                ESI Number:
+                <strong>ESI Number:</strong>
                 {(editing === 'statutory' || isEditingAll) ? (
                   <input
                     type="text"
@@ -756,6 +801,127 @@ export default function ProfileCard() {
                 ) : (
                   <span>{profile.esiNumber || 'Not set'}</span>
                 )}
+              </div>
+              <div className="info-row">
+                <strong>Aadhaar Number:</strong>
+                {(editing === 'statutory' || isEditingAll) ? (
+                  <input
+                    type="text"
+                    value={profile.aadharNumber || ''}
+                    onChange={(e) => handleInputChange('aadharNumber', e.target.value)}
+                    className="edit-input"
+                    placeholder="12-digit Aadhaar number"
+                  />
+                ) : (
+                  <span>{profile.aadharNumber || 'Not set'}</span>
+                )}
+              </div>
+              <div className="info-row" style={{ minHeight: '52px' }}>
+                <strong>Aadhaar Card:</strong>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  {profile.aadharCard?.url ? (
+                    <>
+                      <span style={{
+                        flex: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '5px 14px',
+                        borderRadius: '20px',
+                        background: '#dcfce7',
+                        color: '#15803d',
+                        fontWeight: '600',
+                        fontSize: '0.85rem',
+                        whiteSpace: 'nowrap',
+                        width: 'auto',
+                        textAlign: 'center'
+                      }}>
+                        ✓ Uploaded
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setViewAadharModal(true)}
+                        style={{
+                          padding: '6px 16px',
+                          background: '#159C8E',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '20px',
+                          fontWeight: '600',
+                          fontSize: '0.85rem',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 2px 6px rgba(21, 156, 142, 0.2)'
+                        }}
+                      >
+                        View Card
+                      </button>
+                      <label style={{
+                        padding: '6px 14px',
+                        background: '#ffffff',
+                        color: '#374151',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '20px',
+                        fontWeight: '600',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {uploadingAadhar ? 'Uploading...' : 'Change'}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/jpg,application/pdf"
+                          disabled={uploadingAadhar}
+                          onChange={handleAadharUpload}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                    </>
+                  ) : (
+                    <>
+                      <span style={{
+                        flex: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '5px 14px',
+                        borderRadius: '20px',
+                        background: '#fef3c7',
+                        color: '#b45309',
+                        fontWeight: '600',
+                        fontSize: '0.85rem',
+                        whiteSpace: 'nowrap',
+                        width: 'auto',
+                        textAlign: 'center'
+                      }}>
+                        Not Uploaded
+                      </span>
+                      <label style={{
+                        padding: '6px 18px',
+                        background: '#159C8E',
+                        color: 'white',
+                        borderRadius: '20px',
+                        fontWeight: '600',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 2px 6px rgba(21, 156, 142, 0.2)'
+                      }}>
+                        {uploadingAadhar ? 'Uploading...' : 'Upload Aadhaar Card'}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/jpg,application/pdf"
+                          disabled={uploadingAadhar}
+                          onChange={handleAadharUpload}
+                          style={{ display: 'none' }}
+                        />
+                      </label>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -864,6 +1030,115 @@ export default function ProfileCard() {
 
         </div>
       </div>
+
+      {/* Aadhaar Card Modal Preview */}
+      {viewAadharModal && profile.aadharCard?.url && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.75)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '1rem',
+          }}
+          onClick={() => setViewAadharModal(false)}
+        >
+          <div
+            style={{
+              backgroundColor: '#fff',
+              borderRadius: '12px',
+              maxWidth: '800px',
+              width: '100%',
+              maxHeight: '90vh',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                padding: '1rem 1.5rem',
+                borderBottom: '1px solid #e5e7eb',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                backgroundColor: '#f8fafc',
+              }}
+            >
+              <h3 style={{ margin: 0, color: '#0f172a' }}>Aadhaar Card Preview</h3>
+              <button
+                type="button"
+                onClick={() => setViewAadharModal(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '1.5rem',
+                  lineHeight: 1,
+                  cursor: 'pointer',
+                  color: '#64748b',
+                }}
+              >
+                &times;
+              </button>
+            </div>
+            <div style={{ padding: '1.5rem', overflowY: 'auto', textAlign: 'center', flex: 1 }}>
+              {profile.aadharCard.url.endsWith('.pdf') || profile.aadharCard.filename?.endsWith('.pdf') ? (
+                <iframe
+                  src={profile.aadharCard.url}
+                  title="Aadhaar Card Document"
+                  style={{ width: '100%', height: '500px', border: 'none' }}
+                />
+              ) : (
+                <img
+                  src={profile.aadharCard.url}
+                  alt="Aadhaar Card"
+                  style={{ maxWidth: '100%', maxHeight: '60vh', objectFit: 'contain', borderRadius: '8px' }}
+                />
+              )}
+            </div>
+            <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <label className="edit-btn" style={{ padding: '6px 16px', fontSize: '0.9rem', cursor: 'pointer', margin: 0, display: 'inline-flex', alignItems: 'center' }}>
+                {uploadingAadhar ? 'Uploading...' : 'Change / Re-upload File'}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/jpg,application/pdf"
+                  disabled={uploadingAadhar}
+                  onChange={(e) => {
+                    handleAadharUpload(e);
+                    setViewAadharModal(false);
+                  }}
+                  style={{ display: 'none' }}
+                />
+              </label>
+              <a
+                href={profile.aadharCard.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="main-edit"
+                style={{ textDecoration: 'none', padding: '6px 16px', fontSize: '0.9rem' }}
+              >
+                Open Original
+              </a>
+              <button
+                type="button"
+                className="main-cancel"
+                style={{ padding: '6px 16px', fontSize: '0.9rem' }}
+                onClick={() => setViewAadharModal(false)}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
