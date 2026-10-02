@@ -208,10 +208,10 @@ export default function ProfileCard() {
     const token = localStorage.getItem('token');
     try {
       // Ensure salary is sent as a number
-      const payload = {
-        ...profile,
-        salary: profile.salary === '' || profile.salary === null ? 0 : Number(profile.salary)
-      };
+      const payload = { ...profile };
+      delete payload.salary;
+      delete payload.isActive;
+      delete payload.empGrade;
       console.log('Saving profile with payload:', payload);
       await axios.put(API_ENDPOINTS.updateProfile, payload, {
         headers: { Authorization: `Bearer ${token}` }
@@ -978,16 +978,7 @@ export default function ProfileCard() {
               </div>
               <div className="info-row">
                  Salary: 
-                {(editing === 'company' || isEditingAll) ? (
-                  <input
-                    type="number"
-                    value={profile.salary}
-                    onChange={(e) => handleInputChange('salary', e.target.value)}
-                    className="edit-input"
-                  />
-                ) : (
-                  <span>₹{Number(profile.salary).toLocaleString()}/year</span>
-                )}
+                <span>₹{Number(profile.salary).toLocaleString()}/year</span>
               </div>
               <div className="info-row">
                  Date of Joining: 

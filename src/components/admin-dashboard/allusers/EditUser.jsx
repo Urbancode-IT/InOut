@@ -20,6 +20,7 @@ const EditUser = ({ userId, onClose, onUpdated, pageMode = false }) => {
     department: '',
     qualification: '',
     dateOfJoining: '',
+    dateOfBirth: '',
     dateOfRelieving: '',
     profilePic: '',
     skills: [],
@@ -269,6 +270,16 @@ const EditUser = ({ userId, onClose, onUpdated, pageMode = false }) => {
                   type="date"
                   name="dateOfJoining"
                   value={form.dateOfJoining?.slice(0, 10) || ''}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="uc-form-field">
+                <label htmlFor="edit-dob">Date of Birth</label>
+                <input
+                  id="edit-dob"
+                  type="date"
+                  name="dateOfBirth"
+                  value={form.dateOfBirth?.slice(0, 10) || ''}
                   onChange={handleChange}
                 />
               </div>
