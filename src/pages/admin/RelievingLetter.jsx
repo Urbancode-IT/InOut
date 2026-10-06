@@ -22,12 +22,13 @@ import { toast } from 'react-toastify';
 import letterheadUrl from '../../assets/letterhead.pdf';
 import { shrinkLetterheadPhoneIconOnAllPages } from '../../utils/letterheadFooter';
 import { sanitizeTextForStandardFonts } from '../../utils/pdfTextSanitizer';
+import { sendDocumentEmailApi } from '../../utils/sendEmail';
 
 const RelievingLetter = () => {
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState('');
-  const [form, setForm] = useState({ candidateName: '', designation: '', company: '', joiningDate: '', relievingDate: '' });
+  const [form, setForm] = useState({ candidateName: '', designation: '', company: '', joiningDate: '', relievingDate: '', email: '' });
   const [titleText, setTitleText] = useState('RELIEVING LETTER');
   const [letterDate, setLetterDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [body, setBody] = useState(`To Whom It May Concern,
@@ -46,6 +47,7 @@ Founder
   const [pdfUrl, setPdfUrl] = useState(null);
   const [pdfBytesData, setPdfBytesData] = useState(null);
   const [generating, setGenerating] = useState(false);
+  const [sendingMail, setSendingMail] = useState(false);
   const [signatureFile, setSignatureFile] = useState(null);
   const [signatureBytes, setSignatureBytes] = useState(null);
   const [signaturePreview, setSignaturePreview] = useState(null);
@@ -70,7 +72,7 @@ Founder
     if (!selected) return;
     const cand = candidates.find(c => c._id === selected);
     if (cand) {
-      setForm({ candidateName: cand.name || '', designation: cand.position || '', company: cand.company || '', joiningDate: cand.dateOfJoining ? cand.dateOfJoining.slice(0,10) : '', relievingDate: '' });
+      setForm({ candidateName: cand.name || '', designation: cand.position || '', company: cand.company || '', joiningDate: cand.dateOfJoining ? cand.dateOfJoining.slice(0,10) : '', relievingDate: '', email: cand.email || '' });
     }
   }, [selected, candidates]);
 
@@ -221,7 +223,39 @@ Founder
   setPdfBytesData(pdfBytes);
   const blob = new Blob([pdfBytes], { type: 'application/pdf' });
   setPdfUrl(URL.createObjectURL(blob));
-  } catch (err) { console.error('PDF generation error', err); toast.error('Failed: Failed to generate PDF. See console for details.'); } finally { setGenerating(false); }
+  return pdfBytes;
+  } catch (err) { console.error('PDF generation error', err); toast.error('Failed: Failed to generate PDF. See console for details.'); return null; } finally { setGenerating(false); }
+  };
+
+  const handleSendMail = async () => {
+    if (!form.email || !form.email.trim()) {
+      toast.warning('Please enter a recipient email ID.');
+      return;
+    }
+    setSendingMail(true);
+    try {
+      let bytes = pdfBytesData;
+      if (!bytes) {
+        bytes = await generatePdf();
+      }
+      if (!bytes) {
+        toast.error('Could not generate PDF for email.');
+        return;
+      }
+      await sendDocumentEmailApi({
+        toEmail: form.email.trim(),
+        subject: `Relieving Letter - ${form.candidateName || 'Employee'}`,
+        text: `Dear ${form.candidateName || 'Employee'},\n\nPlease find attached your Relieving Letter from ${form.company || 'Urbancode'}.\n\nRegards,\nAdmin Team`,
+        pdfBytes: bytes,
+        filename: `${form.candidateName || 'relieving-letter'}.pdf`,
+      });
+      toast.success(`Relieving Letter sent successfully to ${form.email.trim()}`);
+    } catch (err) {
+      console.error('Failed to send mail:', err);
+      toast.error(err.response?.data?.error || err.message || 'Failed to send email');
+    } finally {
+      setSendingMail(false);
+    }
   };
 
   const downloadPdf = () => {
@@ -257,6 +291,7 @@ Founder
               </Select>
             </FormControl>
             <TextField label="Name" fullWidth sx={{ mb: 2 }} value={form.candidateName} onChange={(e) => handleChange('candidateName', e.target.value)} />
+            <TextField label="Recipient Email ID" type="email" fullWidth sx={{ mb: 2 }} value={form.email} onChange={(e) => handleChange('email', e.target.value)} placeholder="Enter candidate email address" />
             <TextField label="Designation" fullWidth sx={{ mb: 2 }} value={form.designation} onChange={(e) => handleChange('designation', e.target.value)} />
             <TextField label="Company" fullWidth sx={{ mb: 2 }} value={form.company} onChange={(e) => handleChange('company', e.target.value)} />
             <TextField label="Joining Date" type="date" fullWidth sx={{ mb: 2 }} value={form.joiningDate} onChange={(e) => handleChange('joiningDate', e.target.value)} InputLabelProps={{ shrink: true }} />
@@ -269,9 +304,12 @@ Founder
               <input type="file" accept="image/*" onChange={handleSignatureUpload} />
               {signaturePreview && (<Box sx={{ mt: 1 }}><img src={signaturePreview} alt="signature preview" style={{ maxWidth: 200, maxHeight: 80 }} /></Box>)}
             </Box>
-            <Box sx={{ display: 'flex', gap: 2 }}>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <Button variant="contained" onClick={generatePdf} disabled={generating}>{generating ? 'Generating...' : 'Generate Preview'}</Button>
               <Button variant="outlined" onClick={downloadPdf} disabled={!pdfUrl}>Download PDF</Button>
+              <Button variant="contained" color="secondary" onClick={handleSendMail} disabled={sendingMail} sx={{ backgroundColor: '#0b2d67', '&:hover': { backgroundColor: '#071d44' } }}>
+                {sendingMail ? 'Sending...' : 'Send Mail'}
+              </Button>
             </Box>
 
             {selected && (candidates.find(c => c._id === selected)?.letterCopies || []).length > 0 && (

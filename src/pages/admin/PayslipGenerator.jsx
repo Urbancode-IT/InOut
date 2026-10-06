@@ -144,6 +144,7 @@ const PayslipGenerator = () => {
     generatedDate: dayjs().format("YYYY-MM-DD"),
     // paymentDate: "",
     month: dayjs().format("MMMM YYYY"),
+    email: "",
     workingDays: 0,
     leaveDays: 0,
     lateDays: 0,
@@ -388,6 +389,7 @@ const PayslipGenerator = () => {
           resolvedProfile?.bankDetails?.ifscCode || sampleLog?.bankDetails?.ifscCode
         ),
         mobile: resolvedProfile?.phone || sampleLog?.phone || "",
+        email: resolvedProfile?.email || sampleLog?.user?.email || sampleLog?.email || "",
         dateOfJoining: (resolvedProfile?.dateOfJoining || sampleLog?.dateOfJoining)
           ? dayjs(resolvedProfile?.dateOfJoining || sampleLog?.dateOfJoining).format(
               "YYYY-MM-DD"
@@ -593,6 +595,18 @@ const theme = createTheme({
               />
             </Grid>
           ))}
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              label="Recipient Email ID"
+              type="email"
+              value={employeeDetails.email || ""}
+              onChange={(e) =>
+                setEmployeeDetails({ ...employeeDetails, email: e.target.value })
+              }
+              helperText="Email where payslip PDF will be sent"
+            />
+          </Grid>
         </Grid>
         
         <Grid container spacing={2} mt={2}>

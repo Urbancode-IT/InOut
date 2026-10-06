@@ -22,18 +22,20 @@ import { toast } from 'react-toastify';
 import letterheadUrl from '../../assets/letterhead.pdf';
 import { shrinkLetterheadPhoneIconOnAllPages } from '../../utils/letterheadFooter';
 import { sanitizeTextForStandardFonts } from '../../utils/pdfTextSanitizer';
+import { sendDocumentEmailApi } from '../../utils/sendEmail';
 
 const ExperienceLetter = () => {
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState('');
-  const [form, setForm] = useState({ candidateName: '', designation: '', company: '', joiningDate: '', relievingDate: '' });
+  const [form, setForm] = useState({ candidateName: '', designation: '', company: '', joiningDate: '', relievingDate: '', email: '' });
   const [titleText, setTitleText] = useState('EXPERIENCE LETTER');
   const [letterDate, setLetterDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [body, setBody] = useState(`\n\nTo Whom It May Concern,\n\nThis is to certify that **{{name}}** was employed with **{{company}}** in the capacity of {{designation}} from **{{joiningDate}}** to **{{relievingDate}}**.\n\nDuring the course of their internship, {{name}} was responsible for carrying out assigned duties and responsibilities with dedication and sincerity. They demonstrated a good level of professional competence, discipline, and commitment toward their work. Their conduct throughout the tenure was found to be professional and in accordance with the company's policies and standards.\n\n{{name}} maintained cordial relationships with colleagues, supervisors, and clients, and contributed positively to the work environment. We found them to be reliable and cooperative in performing their assigned tasks and responsibilities.\n\nThis certificate is being issued upon the request of {{name}} for whatever purpose it may serve. We confirm that {{name}} has been relieved from their duties with **{{company}}** as of **{{relievingDate}}**.\n\nWe wish {{name}} every success in their future career and personal endeavors.\n\n**Sivagaminathan C**\nFounder & Director\n**{{company}}**`);
   const [pdfUrl, setPdfUrl] = useState(null);
   const [pdfBytesData, setPdfBytesData] = useState(null);
   const [generating, setGenerating] = useState(false);
+  const [sendingMail, setSendingMail] = useState(false);
   const [signatureFile, setSignatureFile] = useState(null);
   const [signatureBytes, setSignatureBytes] = useState(null);
   const [signaturePreview, setSignaturePreview] = useState(null);
@@ -58,7 +60,7 @@ const ExperienceLetter = () => {
     if (!selected) return;
     const cand = candidates.find(c => c._id === selected);
     if (cand) {
-      setForm({ candidateName: cand.name || '', designation: cand.position || '', company: cand.company || '', joiningDate: cand.dateOfJoining ? cand.dateOfJoining.slice(0,10) : '', relievingDate: '' });
+      setForm({ candidateName: cand.name || '', designation: cand.position || '', company: cand.company || '', joiningDate: cand.dateOfJoining ? cand.dateOfJoining.slice(0,10) : '', relievingDate: '', email: cand.email || '' });
     }
   }, [selected, candidates]);
 
@@ -218,7 +220,39 @@ const ExperienceLetter = () => {
   setPdfBytesData(pdfBytes);
   const blob = new Blob([pdfBytes], { type: 'application/pdf' });
   setPdfUrl(URL.createObjectURL(blob));
-  } catch (err) { console.error('PDF generation error', err); toast.error('Failed: Failed to generate PDF. See console for details.'); } finally { setGenerating(false); }
+  return pdfBytes;
+  } catch (err) { console.error('PDF generation error', err); toast.error('Failed: Failed to generate PDF. See console for details.'); return null; } finally { setGenerating(false); }
+  };
+
+  const handleSendMail = async () => {
+    if (!form.email || !form.email.trim()) {
+      toast.warning('Please enter a recipient email ID.');
+      return;
+    }
+    setSendingMail(true);
+    try {
+      let bytes = pdfBytesData;
+      if (!bytes) {
+        bytes = await generatePdf();
+      }
+      if (!bytes) {
+        toast.error('Could not generate PDF for email.');
+        return;
+      }
+      await sendDocumentEmailApi({
+        toEmail: form.email.trim(),
+        subject: `Experience Letter - ${form.candidateName || 'Employee'}`,
+        text: `Dear ${form.candidateName || 'Employee'},\n\nPlease find attached your Experience Letter from ${form.company || 'Urbancode'}.\n\nRegards,\nAdmin Team`,
+        pdfBytes: bytes,
+        filename: `${form.candidateName || 'experience-letter'}.pdf`,
+      });
+      toast.success(`Experience Letter sent successfully to ${form.email.trim()}`);
+    } catch (err) {
+      console.error('Failed to send mail:', err);
+      toast.error(err.response?.data?.error || err.message || 'Failed to send email');
+    } finally {
+      setSendingMail(false);
+    }
   };
 
   const downloadPdf = () => {
@@ -254,6 +288,7 @@ const ExperienceLetter = () => {
               </Select>
             </FormControl>
             <TextField label="Name" fullWidth sx={{ mb: 2 }} value={form.candidateName} onChange={(e) => handleChange('candidateName', e.target.value)} />
+            <TextField label="Recipient Email ID" type="email" fullWidth sx={{ mb: 2 }} value={form.email} onChange={(e) => handleChange('email', e.target.value)} placeholder="Enter candidate email address" />
             <TextField label="Designation" fullWidth sx={{ mb: 2 }} value={form.designation} onChange={(e) => handleChange('designation', e.target.value)} />
             <TextField label="Company" fullWidth sx={{ mb: 2 }} value={form.company} onChange={(e) => handleChange('company', e.target.value)} />
             <TextField label="Joining Date" type="date" fullWidth sx={{ mb: 2 }} value={form.joiningDate} onChange={(e) => handleChange('joiningDate', e.target.value)} InputLabelProps={{ shrink: true }} />
@@ -266,9 +301,12 @@ const ExperienceLetter = () => {
               <input type="file" accept="image/*" onChange={handleSignatureUpload} />
               {signaturePreview && (<Box sx={{ mt: 1 }}><img src={signaturePreview} alt="signature preview" style={{ maxWidth: 200, maxHeight: 80 }} /></Box>)}
             </Box>
-            <Box sx={{ display: 'flex', gap: 2 }}>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
               <Button variant="contained" onClick={generatePdf} disabled={generating}>{generating ? 'Generating...' : 'Generate Preview'}</Button>
               <Button variant="outlined" onClick={downloadPdf} disabled={!pdfUrl}>Download PDF</Button>
+              <Button variant="contained" color="secondary" onClick={handleSendMail} disabled={sendingMail} sx={{ backgroundColor: '#0b2d67', '&:hover': { backgroundColor: '#071d44' } }}>
+                {sendingMail ? 'Sending...' : 'Send Mail'}
+              </Button>
             </Box>
 
             {selected && (candidates.find(c => c._id === selected)?.letterCopies || []).length > 0 && (

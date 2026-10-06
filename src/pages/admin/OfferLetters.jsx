@@ -22,6 +22,7 @@ import letterheadUrl from '../../assets/letterhead.pdf';
 import { toast } from 'react-toastify';
 import { shrinkLetterheadPhoneIconOnAllPages } from '../../utils/letterheadFooter';
 import { sanitizeTextForStandardFonts } from '../../utils/pdfTextSanitizer';
+import { sendDocumentEmailApi } from '../../utils/sendEmail';
 
 const SIGN_OFF_GAP = 14;
 const MIN_PAGE_BOTTOM = 88;
@@ -563,11 +564,46 @@ const OfferLetters = () => {
       setPdfBytesData(pdfBytes);
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       setPdfUrl(URL.createObjectURL(blob));
+      return pdfBytes;
     } catch (err) {
       console.error('PDF generation error', err);
       toast.error('Failed: Failed to generate PDF. See console for details.');
+      return null;
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const [sendingMail, setSendingMail] = useState(false);
+
+  const handleSendMail = async () => {
+    if (!form.email || !form.email.trim()) {
+      toast.warning('Please enter a recipient email ID.');
+      return;
+    }
+    setSendingMail(true);
+    try {
+      let bytes = pdfBytesData;
+      if (!bytes) {
+        bytes = await generatePdf();
+      }
+      if (!bytes) {
+        toast.error('Could not generate PDF for email.');
+        return;
+      }
+      await sendDocumentEmailApi({
+        toEmail: form.email.trim(),
+        subject: `Offer Letter - ${form.candidateName || 'Candidate'}`,
+        text: `Dear ${form.candidateName || 'Candidate'},\n\nPlease find attached your Offer Letter from ${form.company || 'Urbancode'}.\n\nRegards,\nAdmin Team`,
+        pdfBytes: bytes,
+        filename: `${form.candidateName || 'offer-letter'}.pdf`,
+      });
+      toast.success(`Offer Letter sent successfully to ${form.email.trim()}`);
+    } catch (err) {
+      console.error('Failed to send mail:', err);
+      toast.error(err.response?.data?.error || err.message || 'Failed to send email');
+    } finally {
+      setSendingMail(false);
     }
   };
 
@@ -629,6 +665,7 @@ const OfferLetters = () => {
             </FormControl>
 
             <TextField label="Name" fullWidth sx={{ mb: 2 }} value={form.candidateName} onChange={(e) => handleChange('candidateName', e.target.value)} />
+            <TextField label="Recipient Email ID" type="email" fullWidth sx={{ mb: 2 }} value={form.email} onChange={(e) => handleChange('email', e.target.value)} placeholder="Enter candidate email address" />
             <TextField label="Offer Date" type="date" fullWidth sx={{ mb: 2 }} value={form.offerDate} onChange={(e) => handleChange('offerDate', e.target.value)} InputLabelProps={{ shrink: true }} />
             <TextField label="Address Line 1" fullWidth sx={{ mb: 2 }} value={form.addressLine1} onChange={(e) => handleChange('addressLine1', e.target.value)} />
             <TextField label="Address Line 2" fullWidth sx={{ mb: 2 }} value={form.addressLine2} onChange={(e) => handleChange('addressLine2', e.target.value)} />
@@ -755,6 +792,9 @@ const OfferLetters = () => {
               <Button variant="contained" onClick={generatePdf} disabled={generating}>{generating ? 'Generating...' : 'Generate Preview'}</Button>
               <Button variant="outlined" onClick={downloadPdf} disabled={!pdfUrl}>Download PDF</Button>
               <Button variant="outlined" onClick={printPdf} disabled={!pdfUrl}>Print</Button>
+              <Button variant="contained" color="secondary" onClick={handleSendMail} disabled={sendingMail} sx={{ backgroundColor: '#0b2d67', '&:hover': { backgroundColor: '#071d44' } }}>
+                {sendingMail ? 'Sending...' : 'Send Mail'}
+              </Button>
             </Box>
 
             {selected && (candidates.find(c => c._id === selected)?.letterCopies || []).length > 0 && (

@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import letterheadUrl from '../../assets/letterhead.pdf';
 import { shrinkLetterheadPhoneIconOnAllPages } from '../../utils/letterheadFooter';
 import { sanitizeTextForStandardFonts } from '../../utils/pdfTextSanitizer';
+import { sendDocumentEmailApi } from '../../utils/sendEmail';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../../utils/api';
 
@@ -16,6 +17,7 @@ const COMPANY_PHONE = '+91 98787 98797';
 const InternshipOfferLetter = () => {
   const [form, setForm] = useState({
     candidateName: '',
+    email: '',
     addressLine1: '',
     location: '',
     country: '',
@@ -300,9 +302,11 @@ Authorized Signatory`;
   setPdfBytesData(pdfBytes);
   const blob = new Blob([pdfBytes], { type: 'application/pdf' });
   setPdfUrl(URL.createObjectURL(blob));
+  return pdfBytes;
     } catch (err) {
       console.error('PDF generation error', err);
       toast.error('Failed: Failed to generate PDF. See console for details.');
+      return null;
     } finally {
       setGenerating(false);
     }
@@ -331,6 +335,7 @@ Authorized Signatory`;
     if (cand) {
       const next = {
         candidateName: cand.name || '',
+        email: cand.email || '',
         addressLine1: cand.addressLine1 || cand.address?.line1 || cand.address?.addressLine1 || cand.location || '',
         location: cand.city || cand.location || '',
         country: cand.country || 'India',
@@ -347,6 +352,39 @@ Authorized Signatory`;
       lastAutoBodyRef.current = autoBody;
     }
   }, [selected, candidates]);
+
+  const [sendingMail, setSendingMail] = useState(false);
+
+  const handleSendMail = async () => {
+    if (!form.email || !form.email.trim()) {
+      toast.warning('Please enter a recipient email ID.');
+      return;
+    }
+    setSendingMail(true);
+    try {
+      let bytes = pdfBytesData;
+      if (!bytes) {
+        bytes = await generatePdf();
+      }
+      if (!bytes) {
+        toast.error('Could not generate PDF for email.');
+        return;
+      }
+      await sendDocumentEmailApi({
+        toEmail: form.email.trim(),
+        subject: `Internship Offer Letter - ${form.candidateName || 'Candidate'}`,
+        text: `Dear ${form.candidateName || 'Candidate'},\n\nPlease find attached your Internship Offer Letter from ${form.company || 'Urbancode'}.\n\nRegards,\nAdmin Team`,
+        pdfBytes: bytes,
+        filename: `${form.candidateName || 'internship-offer'}.pdf`,
+      });
+      toast.success(`Internship Offer Letter sent successfully to ${form.email.trim()}`);
+    } catch (err) {
+      console.error('Failed to send mail:', err);
+      toast.error(err.response?.data?.error || err.message || 'Failed to send email');
+    } finally {
+      setSendingMail(false);
+    }
+  };
 
   const replacePlaceholders = (template, data) => {
     return template.replace(/{{\s*name\s*}}/gi, data.candidateName || '')
@@ -403,6 +441,7 @@ Authorized Signatory`;
             </Select>
           </FormControl>
           <TextField label="Name" fullWidth sx={{ mb: 2 }} value={form.candidateName} onChange={(e) => handleChange('candidateName', e.target.value)} />
+          <TextField label="Recipient Email ID" type="email" fullWidth sx={{ mb: 2 }} value={form.email} onChange={(e) => handleChange('email', e.target.value)} placeholder="Enter candidate email address" />
           <TextField label="Address" fullWidth sx={{ mb: 2 }} value={form.addressLine1} onChange={(e) => handleChange('addressLine1', e.target.value)} />
           <TextField label="Location" fullWidth sx={{ mb: 2 }} value={form.location} onChange={(e) => handleChange('location', e.target.value)} />
           <TextField label="Country" fullWidth sx={{ mb: 2 }} value={form.country} onChange={(e) => handleChange('country', e.target.value)} />
@@ -423,9 +462,12 @@ Authorized Signatory`;
             {signaturePreview && (<Box sx={{ mt: 1 }}><img src={signaturePreview} alt="signature preview" style={{ maxWidth: 200, maxHeight: 80 }} /></Box>)}
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <Button variant="contained" onClick={generatePdf} disabled={generating}>{generating ? 'Generating...' : 'Generate Preview'}</Button>
             <Button variant="outlined" onClick={downloadPdf} disabled={!pdfUrl}>Download PDF</Button>
+            <Button variant="contained" color="secondary" onClick={handleSendMail} disabled={sendingMail} sx={{ backgroundColor: '#0b2d67', '&:hover': { backgroundColor: '#071d44' } }}>
+              {sendingMail ? 'Sending...' : 'Send Mail'}
+            </Button>
           </Box>
           {selected && (candidates.find(c => c._id === selected)?.letterCopies || []).length > 0 && (
             <Box sx={{ mt: 2 }}>

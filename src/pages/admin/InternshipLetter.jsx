@@ -11,12 +11,14 @@ import { toast } from 'react-toastify';
 import letterheadUrl from '../../assets/letterhead.pdf';
 import { shrinkLetterheadPhoneIconOnAllPages } from '../../utils/letterheadFooter';
 import { sanitizeTextForStandardFonts } from '../../utils/pdfTextSanitizer';
+import { sendDocumentEmailApi } from '../../utils/sendEmail';
 
 const InternshipLetter = () => {
   // simple form (no candidate lookup) to support students
   const [form, setForm] = useState({
     salutation: 'Mr.',
     studentName: '',
+    email: '',
     collegeName: '',
     address: '',
     registrationNumber: '',
@@ -335,7 +337,41 @@ Sincerely,`;
       setPdfBytesData(pdfBytes);
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       setPdfUrl(URL.createObjectURL(blob));
-    } catch (err) { console.error('PDF generation error', err); toast.error('Failed: Failed to generate PDF. See console for details.'); } finally { setGenerating(false); }
+      return pdfBytes;
+    } catch (err) { console.error('PDF generation error', err); toast.error('Failed: Failed to generate PDF. See console for details.'); return null; } finally { setGenerating(false); }
+  };
+
+  const [sendingMail, setSendingMail] = useState(false);
+
+  const handleSendMail = async () => {
+    if (!form.email || !form.email.trim()) {
+      toast.warning('Please enter a recipient email ID.');
+      return;
+    }
+    setSendingMail(true);
+    try {
+      let bytes = pdfBytesData;
+      if (!bytes) {
+        bytes = await generatePdf();
+      }
+      if (!bytes) {
+        toast.error('Could not generate PDF for email.');
+        return;
+      }
+      await sendDocumentEmailApi({
+        toEmail: form.email.trim(),
+        subject: `Internship Certificate - ${form.studentName || 'Student'}`,
+        text: `Dear ${form.studentName || 'Student'},\n\nPlease find attached your Internship Certificate from ${form.company || 'Urbancode'}.\n\nRegards,\nAdmin Team`,
+        pdfBytes: bytes,
+        filename: `${form.studentName || 'internship-certificate'}.pdf`,
+      });
+      toast.success(`Internship Certificate sent successfully to ${form.email.trim()}`);
+    } catch (err) {
+      console.error('Failed to send mail:', err);
+      toast.error(err.response?.data?.error || err.message || 'Failed to send email');
+    } finally {
+      setSendingMail(false);
+    }
   };
 
   const downloadPdf = () => {
@@ -365,6 +401,7 @@ Sincerely,`;
         <Box sx={{ flex: 1 }}>
           <TextField label="Salutation (Mr./Ms./Dr.)" fullWidth sx={{ mb: 2 }} value={form.salutation} onChange={(e) => handleChange('salutation', e.target.value)} />
           <TextField label="Student Name" fullWidth sx={{ mb: 2 }} value={form.studentName} onChange={(e) => handleChange('studentName', e.target.value)} />
+          <TextField label="Recipient Email ID" type="email" fullWidth sx={{ mb: 2 }} value={form.email} onChange={(e) => handleChange('email', e.target.value)} placeholder="Enter student email address" />
           <TextField label="College Name (optional)" fullWidth sx={{ mb: 2 }} value={form.collegeName} onChange={(e) => handleChange('collegeName', e.target.value)} />
           <TextField label="Address (optional)" fullWidth sx={{ mb: 2 }} value={form.address} onChange={(e) => handleChange('address', e.target.value)} />
           <TextField label="Registration Number (optional)" fullWidth sx={{ mb: 2 }} value={form.registrationNumber} onChange={(e) => handleChange('registrationNumber', e.target.value)} />
@@ -394,9 +431,12 @@ Sincerely,`;
             {sealPreview && (<Box sx={{ mt: 1 }}><img src={sealPreview} alt="seal preview" style={{ maxWidth: 120, maxHeight: 120 }} /></Box>)}
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 2 }}>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <Button variant="contained" onClick={generatePdf} disabled={generating}>{generating ? 'Generating...' : 'Generate Preview'}</Button>
             <Button variant="outlined" onClick={downloadPdf} disabled={!pdfUrl}>Download PDF</Button>
+            <Button variant="contained" color="secondary" onClick={handleSendMail} disabled={sendingMail} sx={{ backgroundColor: '#0b2d67', '&:hover': { backgroundColor: '#071d44' } }}>
+              {sendingMail ? 'Sending...' : 'Send Mail'}
+            </Button>
           </Box>
         </Box>
 

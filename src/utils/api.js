@@ -62,6 +62,7 @@ export const API_ENDPOINTS = {
   getRecentAttendanceLogs: `${BASE_URL}/api/admin/recent-attendance`,
   getRecentDashboardLogs:`${BASE_URL}/api/admin/recent-dashboard`,
   getAdminLetters: `${BASE_URL}/api/admin/letters`,
+  sendDocumentEmail: `${BASE_URL}/api/admin/send-document-email`,
 
   // -----------------
   // Pending Users
