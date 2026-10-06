@@ -49,7 +49,7 @@ const PayslipPreview = ({ payslipData, onBack }) => {
       await sendDocumentEmailApi({
         toEmail: recipientEmail.trim(),
         subject: `Payslip for ${employeeDetails.month || 'Selected Month'} - ${employeeDetails.name || 'Employee'}`,
-        text: `Dear ${employeeDetails.name || 'Employee'},\n\nPlease find attached your payslip for ${employeeDetails.month || 'the selected month'}.\n\nRegards,\nAdmin Team`,
+        text: `Dear ${employeeDetails.name || 'Employee'},\n\nPlease find attached your Payslip for ${employeeDetails.month || 'the selected month'}.\n\nIf you have any questions, please contact HR.\n\nRegards,\nAdmin Team\nUrbancode Edutech Solutions Pvt. Ltd.`,
         pdfBase64,
         filename: fileName,
       });

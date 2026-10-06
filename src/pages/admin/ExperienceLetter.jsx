@@ -242,7 +242,7 @@ const ExperienceLetter = () => {
       await sendDocumentEmailApi({
         toEmail: form.email.trim(),
         subject: `Experience Letter - ${form.candidateName || 'Employee'}`,
-        text: `Dear ${form.candidateName || 'Employee'},\n\nPlease find attached your Experience Letter from ${form.company || 'Urbancode'}.\n\nRegards,\nAdmin Team`,
+        text: `Dear ${form.candidateName || 'Employee'},\n\nPlease find attached your Experience Letter from ${form.company || 'Urbancode'}.\n\nRegards,\nAdmin Team\nUrbancode Edutech Solutions Pvt. Ltd.`,
         pdfBytes: bytes,
         filename: `${form.candidateName || 'experience-letter'}.pdf`,
       });

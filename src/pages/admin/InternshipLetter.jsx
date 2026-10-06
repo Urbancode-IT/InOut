@@ -361,7 +361,7 @@ Sincerely,`;
       await sendDocumentEmailApi({
         toEmail: form.email.trim(),
         subject: `Internship Certificate - ${form.studentName || 'Student'}`,
-        text: `Dear ${form.studentName || 'Student'},\n\nPlease find attached your Internship Certificate from ${form.company || 'Urbancode'}.\n\nRegards,\nAdmin Team`,
+        text: `Dear ${form.studentName || 'Student'},\n\nPlease find attached your Internship Certificate from ${form.company || 'Urbancode'}.\n\nRegards,\nAdmin Team\nUrbancode Edutech Solutions Pvt. Ltd.`,
         pdfBytes: bytes,
         filename: `${form.studentName || 'internship-certificate'}.pdf`,
       });

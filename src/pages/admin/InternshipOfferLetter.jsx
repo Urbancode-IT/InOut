@@ -373,7 +373,7 @@ Authorized Signatory`;
       await sendDocumentEmailApi({
         toEmail: form.email.trim(),
         subject: `Internship Offer Letter - ${form.candidateName || 'Candidate'}`,
-        text: `Dear ${form.candidateName || 'Candidate'},\n\nPlease find attached your Internship Offer Letter from ${form.company || 'Urbancode'}.\n\nRegards,\nAdmin Team`,
+        text: `Dear ${form.candidateName || 'Candidate'},\n\nPlease find attached your Internship Offer Letter from ${form.company || 'Urbancode'}.\n\nRegards,\nAdmin Team\nUrbancode Edutech Solutions Pvt. Ltd.`,
         pdfBytes: bytes,
         filename: `${form.candidateName || 'internship-offer'}.pdf`,
       });

@@ -594,7 +594,7 @@ const OfferLetters = () => {
       await sendDocumentEmailApi({
         toEmail: form.email.trim(),
         subject: `Offer Letter - ${form.candidateName || 'Candidate'}`,
-        text: `Dear ${form.candidateName || 'Candidate'},\n\nPlease find attached your Offer Letter from ${form.company || 'Urbancode'}.\n\nRegards,\nAdmin Team`,
+        text: `Dear ${form.candidateName || 'Candidate'},\n\nPlease find attached your Offer Letter from ${form.company || 'Urbancode Edutech Solutions Pvt. Ltd.'}.\n\nIf you have any questions, please feel free to contact us.\n\nRegards,\nAdmin Team\nUrbancode Edutech Solutions Pvt. Ltd.`,
         pdfBytes: bytes,
         filename: `${form.candidateName || 'offer-letter'}.pdf`,
       });
