@@ -5,7 +5,8 @@ import { API_ENDPOINTS } from '../../utils/api';
 import {
   Box, Container, Typography, Table, TableHead, TableRow,
   TableCell, TableBody, Paper, Button, Chip, Avatar, LinearProgress,
-  Collapse, IconButton, Grid
+  Collapse, IconButton, Grid, Dialog, DialogTitle, DialogContent,
+  DialogContentText, DialogActions
 } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import {
@@ -14,7 +15,8 @@ import {
   FiClock as PendingIcon,
   FiCalendar as CalendarIcon,
   FiChevronDown as ExpandIcon,
-  FiChevronUp as CollapseIcon
+  FiChevronUp as CollapseIcon,
+  FiTrash2 as DeleteIcon
 } from 'react-icons/fi';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import Loader from '../../components/admin-dashboard/common/Loader';
@@ -88,6 +90,7 @@ const LeaveRequestsAdmin = () => {
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedRows, setExpandedRows] = useState({});
+  const [deleteDialog, setDeleteDialog] = useState({ open: false, id: null, userName: '' });
 
   useEffect(() => {
     fetchLeaveRequests();
@@ -127,6 +130,28 @@ const LeaveRequestsAdmin = () => {
       ...prev,
       [id]: !prev[id]
     }));
+  };
+
+  const handleDeleteClick = (id, userName) => {
+    setDeleteDialog({ open: true, id, userName });
+  };
+
+  const handleDeleteConfirm = async () => {
+    const token = localStorage.getItem('token');
+    try {
+      await axios.delete(API_ENDPOINTS.deleteLeaveRequest(deleteDialog.id), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setLeaveRequests((prev) => prev.filter((r) => r._id !== deleteDialog.id));
+    } catch (err) {
+      console.error('Error deleting leave request', err);
+    } finally {
+      setDeleteDialog({ open: false, id: null, userName: '' });
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialog({ open: false, id: null, userName: '' });
   };
 
   const groupedRequests = leaveRequests.reduce((acc, req) => {
@@ -237,34 +262,40 @@ const LeaveRequestsAdmin = () => {
                             />
                           </TableCell>
                           <TableCell>
-                            {req.status === 'Pending' ? (
-                              <Box display="flex" gap={1}>
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  color="success"
-                                  onClick={() => updateStatus(req._id, 'Approved')}
-                                  startIcon={<ApprovedIcon />}
-                                  sx={{ textTransform: 'none' }}
-                                >
-                                  Approve
-                                </Button>
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  color="error"
-                                  onClick={() => updateStatus(req._id, 'Rejected')}
-                                  startIcon={<RejectedIcon />}
-                                  sx={{ textTransform: 'none' }}
-                                >
-                                  Reject
-                                </Button>
-                              </Box>
-                            ) : (
-                              <Typography variant="body2" color="textSecondary">
-                                No actions available
-                              </Typography>
-                            )}
+                            <Box display="flex" gap={1} alignItems="center">
+                              {req.status === 'Pending' && (
+                                <>
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="success"
+                                    onClick={() => updateStatus(req._id, 'Approved')}
+                                    startIcon={<ApprovedIcon />}
+                                    sx={{ textTransform: 'none' }}
+                                  >
+                                    Approve
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="error"
+                                    onClick={() => updateStatus(req._id, 'Rejected')}
+                                    startIcon={<RejectedIcon />}
+                                    sx={{ textTransform: 'none' }}
+                                  >
+                                    Reject
+                                  </Button>
+                                </>
+                              )}
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => handleDeleteClick(req._id, req.user?.name || 'Unknown')}
+                                title="Delete leave request"
+                              >
+                                <DeleteIcon size={16} />
+                              </IconButton>
+                            </Box>
                           </TableCell>
                           <TableCell>
                             <IconButton
@@ -334,6 +365,22 @@ const LeaveRequestsAdmin = () => {
             </Paper>
           </Box>
         ))}
+        {/* Delete Confirmation Dialog */}
+        <Dialog
+          open={deleteDialog.open}
+          onClose={handleDeleteCancel}
+        >
+          <DialogTitle>Delete Leave Request</DialogTitle>
+          <DialogContent>
+            <DialogContentText>
+              Are you sure you want to delete the leave request for <strong>{deleteDialog.userName}</strong>? This action cannot be undone.
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleDeleteCancel} color="inherit">Cancel</Button>
+            <Button onClick={handleDeleteConfirm} color="error" variant="contained">Delete</Button>
+          </DialogActions>
+        </Dialog>
       </Container>
     </ThemeProvider>
   );

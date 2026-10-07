@@ -80,6 +80,7 @@ export const API_ENDPOINTS = {
   getMyLeaves: `${BASE_URL}/api/leaves/me`,
   getAllLeaves: `${BASE_URL}/api/leaves/all`,
   updateLeaveStatus: (id) => `${BASE_URL}/api/leaves/${id}`,
+  deleteLeaveRequest: (id) => `${BASE_URL}/api/leaves/${id}`,
 
   // -----------------
   // Holidays
