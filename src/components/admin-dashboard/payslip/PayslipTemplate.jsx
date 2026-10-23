@@ -23,6 +23,14 @@ const formatMoney = (amount) =>
     maximumFractionDigits: 2,
   });
 
+/** Empty / missing values → "-" */
+const d = (value) => {
+  if (value === 0 || value === "0") return "0";
+  if (value === null || value === undefined) return "-";
+  const text = String(value).trim();
+  return text === "" ? "-" : text;
+};
+
 const PayslipTemplate = ({ data }) => {
   const {
     companyName,
@@ -94,55 +102,55 @@ const PayslipTemplate = ({ data }) => {
       <table style={{ width: "100%", borderCollapse: "collapse", border: BORDER }}>
         <tbody>
           <tr>
-            <td style={labelStyle}>TAN : <span style={{ fontWeight: 400 }}>{tan}</span></td>
-            <td style={labelStyle}>PF : <span style={{ fontWeight: 400 }}>{pfNumber}</span></td>
-            <td style={labelStyle}>ESI : <span style={{ fontWeight: 400 }}>{esiRegNumber}</span></td>
+            <td style={labelStyle}>TAN : <span style={{ fontWeight: 400 }}>{d(tan)}</span></td>
+            <td style={labelStyle}>PF : <span style={{ fontWeight: 400 }}>{d(pfNumber)}</span></td>
+            <td style={labelStyle}>ESI : <span style={{ fontWeight: 400 }}>{d(esiRegNumber)}</span></td>
           </tr>
           <tr>
-            <td style={labelStyle} colSpan={2}>Pay Period : <span style={{ fontWeight: 400 }}>{payPeriodLabel}</span></td>
-            <td style={labelStyle}>Mobile : <span style={{ fontWeight: 400 }}>{mobile}</span></td>
+            <td style={labelStyle} colSpan={2}>Pay Period : <span style={{ fontWeight: 400 }}>{d(payPeriodLabel)}</span></td>
+            <td style={labelStyle}>Mobile : <span style={{ fontWeight: 400 }}>{d(mobile)}</span></td>
           </tr>
           <tr>
             <td style={{ ...cellStyle, textAlign: "center", fontWeight: 700, fontSize: 17 }} colSpan={3}>
-              Payslip for the Month Of {monthLabel}
+              Payslip for the Month Of {d(monthLabel)}
             </td>
           </tr>
           <tr>
-            <td style={labelStyle} colSpan={2}>Payslip Reference : <span style={{ fontWeight: 400 }}>{payslipReference}</span></td>
-            <td style={labelStyle}>Generated On : <span style={{ fontWeight: 400 }}>{generatedOn}</span></td>
+            <td style={labelStyle} colSpan={2}>Payslip Reference : <span style={{ fontWeight: 400 }}>{d(payslipReference)}</span></td>
+            <td style={labelStyle}>Generated On : <span style={{ fontWeight: 400 }}>{d(generatedOn)}</span></td>
           </tr>
           <tr>
-            <td style={labelStyle}>Name : <span style={{ fontWeight: 400 }}>{name}</span></td>
-            <td style={labelStyle}>Emp ID : <span style={{ fontWeight: 400 }}>{empId}</span></td>
-            <td style={labelStyle}>Emp Grade : <span style={{ fontWeight: 400 }}>{empGrade}</span></td>
+            <td style={labelStyle}>Name : <span style={{ fontWeight: 400 }}>{d(name)}</span></td>
+            <td style={labelStyle}>Emp ID : <span style={{ fontWeight: 400 }}>{d(empId)}</span></td>
+            <td style={labelStyle}>Emp Grade : <span style={{ fontWeight: 400 }}>{d(empGrade)}</span></td>
           </tr>
           <tr>
-            <td style={labelStyle}>Pan : <span style={{ fontWeight: 400 }}>{pan}</span></td>
-            <td style={labelStyle}>PF-UAN : <span style={{ fontWeight: 400 }}>{uan}</span></td>
-            <td style={labelStyle}>ESI : <span style={{ fontWeight: 400 }}>{esi}</span></td>
+            <td style={labelStyle}>Pan : <span style={{ fontWeight: 400 }}>{d(pan)}</span></td>
+            <td style={labelStyle}>PF-UAN : <span style={{ fontWeight: 400 }}>{d(uan)}</span></td>
+            <td style={labelStyle}>ESI : <span style={{ fontWeight: 400 }}>{d(esi)}</span></td>
           </tr>
           <tr>
-            <td style={labelStyle}>Bank : <span style={{ fontWeight: 400 }}>{bankName}</span></td>
-            <td style={labelStyle}>Bank Acc No : <span style={{ fontWeight: 400 }}>{bankAccNo}</span></td>
-            <td style={labelStyle}>IFSC : <span style={{ fontWeight: 400 }}>{ifsc}</span></td>
+            <td style={labelStyle}>Bank : <span style={{ fontWeight: 400 }}>{d(bankName)}</span></td>
+            <td style={labelStyle}>Bank Acc No : <span style={{ fontWeight: 400 }}>{d(bankAccNo)}</span></td>
+            <td style={labelStyle}>IFSC : <span style={{ fontWeight: 400 }}>{d(ifsc)}</span></td>
           </tr>
           <tr>
-            <td style={labelStyle}>Days in Month : <span style={{ fontWeight: 400 }}>{daysInMonth}</span></td>
-            <td style={labelStyle}>LOP Days : <span style={{ fontWeight: 400 }}>{lopDays}</span></td>
-            <td style={labelStyle}>Paid Days : <span style={{ fontWeight: 400 }}>{paidDays}</span></td>
+            <td style={labelStyle}>Days in Month : <span style={{ fontWeight: 400 }}>{d(daysInMonth)}</span></td>
+            <td style={labelStyle}>LOP Days : <span style={{ fontWeight: 400 }}>{d(lopDays)}</span></td>
+            <td style={labelStyle}>Paid Days : <span style={{ fontWeight: 400 }}>{d(paidDays)}</span></td>
           </tr>
           <tr>
-            <td style={labelStyle}>CTC : <span style={{ fontWeight: 400 }}>{ctc}</span></td>
-            <td style={labelStyle}>Gross Pay : <span style={{ fontWeight: 400 }}>{grossPay}</span></td>
-            <td style={labelStyle}>Paid Gross Pay : <span style={{ fontWeight: 400 }}>{paidGrossPay}</span></td>
+            <td style={labelStyle}>CTC : <span style={{ fontWeight: 400 }}>{d(ctc)}</span></td>
+            <td style={labelStyle}>Gross Pay : <span style={{ fontWeight: 400 }}>{d(grossPay)}</span></td>
+            <td style={labelStyle}>Paid Gross Pay : <span style={{ fontWeight: 400 }}>{d(paidGrossPay)}</span></td>
           </tr>
           <tr>
-            <td style={labelStyle} colSpan={2}>Department : <span style={{ fontWeight: 400 }}>{department}</span></td>
-            <td style={labelStyle}>Designation : <span style={{ fontWeight: 400 }}>{designation}</span></td>
+            <td style={labelStyle} colSpan={2}>Department : <span style={{ fontWeight: 400 }}>{d(department)}</span></td>
+            <td style={labelStyle}>Designation : <span style={{ fontWeight: 400 }}>{d(designation)}</span></td>
           </tr>
           <tr>
-            <td style={labelStyle} colSpan={2}>Joining Date : <span style={{ fontWeight: 400 }}>{joiningDate}</span></td>
-            <td style={labelStyle}>Working Location : <span style={{ fontWeight: 400 }}>{workingLocation}</span></td>
+            <td style={labelStyle} colSpan={2}>Joining Date : <span style={{ fontWeight: 400 }}>{d(joiningDate)}</span></td>
+            <td style={labelStyle}>Working Location : <span style={{ fontWeight: 400 }}>{d(workingLocation)}</span></td>
           </tr>
           <tr>
             <td style={{ ...cellStyle, height: 22 }} colSpan={3}>&nbsp;</td>
@@ -175,7 +183,7 @@ const PayslipTemplate = ({ data }) => {
           <tr>
             <td style={cellStyle} colSpan={2} rowSpan={2}>
               <div style={{ fontWeight: 600 }}>Net Pay-Amount in Words:</div>
-              <div style={{ marginTop: 4 }}>{netPayWords}</div>
+              <div style={{ marginTop: 4 }}>{d(netPayWords)}</div>
             </td>
             <td style={labelStyle} colSpan={2}>
               Net Pay(E-D): <span style={{ fontWeight: 700 }}>{formatMoney(netPay)}</span>
@@ -183,7 +191,7 @@ const PayslipTemplate = ({ data }) => {
           </tr>
           <tr>
             <td style={labelStyle} colSpan={2}>
-              Remitted On: <span style={{ fontWeight: 400 }}>{remittedOn}</span>
+              Remitted On: <span style={{ fontWeight: 400 }}>{d(remittedOn)}</span>
             </td>
           </tr>
         </tbody>

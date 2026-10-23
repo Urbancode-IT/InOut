@@ -34,6 +34,7 @@ import {
   annualToMonthlySalary,
   calculateLopDays,
   calculatePaidGrossPay,
+  getCompanyStatutoryDefaults,
 } from "../../utils/payslipViewModel";
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -166,7 +167,7 @@ const PayslipGenerator = () => {
     paidGrossPay: "",
     workingLocation: "Chennai",
     mobile: "",
-    remittedOn: "",
+    remittedOn: dayjs().format("YYYY-MM-DD"),
   });
 
   const [incomes, setIncomes] = useState([
@@ -175,17 +176,18 @@ const PayslipGenerator = () => {
   ]);
 
   const [deductions, setDeductions] = useState([
-    { label: "PF", amount: 2000 },
-    { label: "TDS", amount: 1500 },
+    { label: "PF", amount: 0 },
+    { label: "TDS", amount: 0 },
   ]);
 
   const findEmployeeProfile = (employeeName, sampleLog) => {
-    if (!employeeName || !Array.isArray(users) || users.length === 0) return null;
+    if (!Array.isArray(users) || users.length === 0) return null;
     const userId = sampleLog?.userId ?? sampleLog?.user?._id ?? sampleLog?.user?.id;
     if (userId != null) {
       const byId = users.find((u) => String(u._id) === String(userId));
       if (byId) return byId;
     }
+    if (!employeeName) return null;
     const target = String(employeeName).trim().toLowerCase();
     return (
       users.find((u) => String(u.name || "").trim().toLowerCase() === target) || null
@@ -223,14 +225,34 @@ const PayslipGenerator = () => {
         setLeaves(Array.isArray(leavesRes.data) ? leavesRes.data : []);
         setHolidays(normalizeHolidayList(holidaysRes.data));
 
-        const names = [
-          ...new Set(
-            logsData
-              .map((log) => log.employeeName || log.user?.name || "Unknown")
-              .filter((n) => n && n !== "Unknown")
-          ),
-        ];
-        setEmployees(names);
+        // Prefer full user list so statutory (PAN/UAN/ESI) always resolves on select.
+        const activeUsers = usersData
+          .filter(
+            (u) =>
+              u &&
+              u.name &&
+              String(u.name).trim().toLowerCase() !== "admin" &&
+              u.role !== "admin" &&
+              u.isActive !== false
+          )
+          .sort((a, b) =>
+            String(a.name || "").localeCompare(String(b.name || ""), undefined, {
+              sensitivity: "base",
+            })
+          );
+
+        if (activeUsers.length > 0) {
+          setEmployees(activeUsers);
+        } else {
+          const names = [
+            ...new Set(
+              logsData
+                .map((log) => log.employeeName || log.user?.name || "Unknown")
+                .filter((n) => n && n !== "Unknown")
+            ),
+          ];
+          setEmployees(names);
+        }
       } catch (err) {
         console.error("Error loading payslip data:", err);
       } finally {
@@ -355,23 +377,54 @@ const PayslipGenerator = () => {
     const sampleLog = logs.find(
       (l) => normalizeName(l.employeeName || l.user?.name) === empKey
     );
-    let profile = findEmployeeProfile(selectedEmployee, sampleLog);
-    const resolvedUserId = sampleLog?.userId || sampleLog?.user?._id || profile?._id;
+    // Prefer selected user object from dropdown, then name/id match from list.
+    const selectedUserObj =
+      (Array.isArray(employees) &&
+        employees.find(
+          (e) => e && typeof e === "object" && normalizeName(e.name) === empKey
+        )) ||
+      null;
+    let profile =
+      selectedUserObj || findEmployeeProfile(selectedEmployee, sampleLog);
+    const resolvedUserId =
+      profile?._id || sampleLog?.userId || sampleLog?.user?._id;
+
+    const lopDaysCalc = calculateLopDays(leaveDays, absentDays);
+    const daysInMonth = allDates.length;
 
     const applyProfileToForm = (resolvedProfile) => {
       const annualSalary = Number(resolvedProfile?.salary) || 0;
       const monthlySalary = annualToMonthlySalary(annualSalary);
+      // Attendance-based paid salary (monthly gross minus LOP).
+      const paidSalary = calculatePaidGrossPay(
+        monthlySalary,
+        daysInMonth,
+        lopDaysCalc
+      );
+      const companyName =
+        resolvedProfile?.company || sampleLog?.company || "";
+      const companyStatutory = getCompanyStatutoryDefaults(companyName);
+      const branchLocation =
+        resolvedProfile?.branch ||
+        resolvedProfile?.bankDetails?.officeBranch ||
+        sampleLog?.branch ||
+        "Chennai";
 
       setEmployeeDetails((prev) => ({
         ...prev,
         name: selectedEmployee,
         userId: resolvedUserId || resolvedProfile?._id,
-        employeeId: resolvedProfile?.employeeId || sampleLog?._id || "uc_202501",
-        designation: resolvedProfile?.position || sampleLog?.position || "Software Engineer",
-        department: resolvedProfile?.department || sampleLog?.department || "Development",
-        company: resolvedProfile?.company || sampleLog?.company || "",
+        employeeId:
+          profileField(resolvedProfile?.employeeId) ||
+          profileField(sampleLog?.employeeId) ||
+          "",
+        designation:
+          resolvedProfile?.position || sampleLog?.position || "",
+        department:
+          resolvedProfile?.department || sampleLog?.department || "",
+        company: companyName,
         month: dayjs(selectedMonth).format("MMMM YYYY"),
-        totalDays: allDates.length,
+        totalDays: daysInMonth,
         bankAccountName:
           resolvedProfile?.bankDetails?.bankingName ||
           sampleLog?.bankDetails?.bankingName ||
@@ -382,36 +435,56 @@ const PayslipGenerator = () => {
           sampleLog?.bankDetails?.accountNumber ||
           "",
         empGrade: profileField(resolvedProfile?.empGrade),
+        tan: companyStatutory.tan,
+        pfNumber: companyStatutory.pfNumber,
+        esiRegNumber: companyStatutory.esiRegNumber,
         pan: profileField(resolvedProfile?.pan),
         uan: profileField(resolvedProfile?.uan),
         esiNumber: profileField(resolvedProfile?.esiNumber),
         ifsc: profileField(
-          resolvedProfile?.bankDetails?.ifscCode || sampleLog?.bankDetails?.ifscCode
+          resolvedProfile?.bankDetails?.ifscCode ||
+            sampleLog?.bankDetails?.ifscCode
         ),
         mobile: resolvedProfile?.phone || sampleLog?.phone || "",
-        email: resolvedProfile?.email || sampleLog?.user?.email || sampleLog?.email || "",
-        dateOfJoining: (resolvedProfile?.dateOfJoining || sampleLog?.dateOfJoining)
-          ? dayjs(resolvedProfile?.dateOfJoining || sampleLog?.dateOfJoining).format(
-              "YYYY-MM-DD"
-            )
+        email:
+          resolvedProfile?.email ||
+          sampleLog?.user?.email ||
+          sampleLog?.email ||
+          "",
+        dateOfJoining: (resolvedProfile?.dateOfJoining ||
+        sampleLog?.dateOfJoining)
+          ? dayjs(
+              resolvedProfile?.dateOfJoining || sampleLog?.dateOfJoining
+            ).format("YYYY-MM-DD")
           : "",
         ctc: annualSalary > 0 ? String(annualSalary) : "",
-        grossPay: "",
-        paidGrossPay: "",
+        // Auto-fill: full monthly + attendance-adjusted paid amount
+        grossPay: monthlySalary > 0 ? String(monthlySalary) : "",
+        paidGrossPay: monthlySalary > 0 ? String(paidSalary) : "",
+        workingLocation: branchLocation || "Chennai",
+        // Remitted On = payslip issue date (today when generating)
+        remittedOn: dayjs().format("YYYY-MM-DD"),
         workingDays,
         leaveDays,
         lateDays,
         halfDays,
         absentDays,
-        lopDays: calculateLopDays(leaveDays, absentDays),
+        lopDays: lopDaysCalc,
         presentDays,
       }));
 
-      if (annualSalary > 0) {
-        setIncomes([{ label: "Basic Pay", amount: monthlySalary }]);
-      } else {
-        setIncomes([{ label: "Basic Pay", amount: 0 }]);
-      }
+      // Income = attendance-adjusted salary so Summary total matches paid amount
+      setIncomes([
+        {
+          label: "Basic Pay",
+          amount: monthlySalary > 0 ? paidSalary : 0,
+        },
+      ]);
+      // Company policy: no PF / TDS deduction on auto-generated payslips
+      setDeductions([
+        { label: "PF", amount: 0 },
+        { label: "TDS", amount: 0 },
+      ]);
     };
 
     // Fill immediately from list, then refresh full profile by id (empGrade/PAN/etc.).
@@ -473,13 +546,32 @@ const theme = createTheme({
     employeeDetails.lopDays !== "" && employeeDetails.lopDays !== undefined
       ? Number(employeeDetails.lopDays) || 0
       : calculateLopDays(employeeDetails.leaveDays, employeeDetails.absentDays);
-  const paidGrossPay = calculatePaidGrossPay(totalIncome, daysInMonth, lopDays);
+  // Prefer autofilled paidGrossPay (already attendance-adjusted) so LOP is not applied twice.
+  const paidGrossPay =
+    employeeDetails.paidGrossPay !== "" &&
+    employeeDetails.paidGrossPay !== undefined &&
+    employeeDetails.paidGrossPay !== null
+      ? Number(employeeDetails.paidGrossPay) || 0
+      : calculatePaidGrossPay(totalIncome, daysInMonth, lopDays);
   const netPay = Math.round((paidGrossPay - totalDeductions) * 100) / 100;
 
   const handleAttendanceChange = (key, value) => {
     const next = { ...employeeDetails, [key]: value };
-    if (key === "leaveDays" || key === "absentDays") {
-      next.lopDays = calculateLopDays(next.leaveDays, next.absentDays);
+    if (key === "leaveDays" || key === "absentDays" || key === "lopDays") {
+      if (key === "leaveDays" || key === "absentDays") {
+        next.lopDays = calculateLopDays(next.leaveDays, next.absentDays);
+      }
+      // Recalculate paid salary from CTC when attendance / LOP is edited manually.
+      const annualSalary = Number(next.ctc) || 0;
+      const monthlySalary = annualToMonthlySalary(annualSalary);
+      const days = Number(next.totalDays) || 0;
+      const lop = Number(next.lopDays) || 0;
+      if (monthlySalary > 0 && days > 0) {
+        const paidSalary = calculatePaidGrossPay(monthlySalary, days, lop);
+        next.grossPay = String(monthlySalary);
+        next.paidGrossPay = String(paidSalary);
+        setIncomes([{ label: "Basic Pay", amount: paidSalary }]);
+      }
     }
     setEmployeeDetails(next);
   };

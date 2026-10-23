@@ -53,8 +53,45 @@ const COMPANY_INFO = {
     email: "admin@urbancode.in",
     website: "urbancode.in",
     phone: "98787 98797",
+    tan: "",
+    pfNumber: "",
+    esiRegNumber: "",
+  },
+  jobzenter: {
+    cin: "",
+    gstin: "",
+    address: "",
+    email: "",
+    website: "",
+    phone: "",
+    tan: "",
+    pfNumber: "",
+    esiRegNumber: "",
   },
 };
+
+/** Resolve company statutory defaults (TAN / PF / ESI) from employee company name. */
+export function getCompanyStatutoryDefaults(company = "") {
+  const key = String(company || "").trim().toLowerCase();
+  if (!key) return { tan: "", pfNumber: "", esiRegNumber: "" };
+
+  if (key.includes("jobzenter")) {
+    const info = COMPANY_INFO.jobzenter || {};
+    return {
+      tan: info.tan || "",
+      pfNumber: info.pfNumber || "",
+      esiRegNumber: info.esiRegNumber || "",
+    };
+  }
+
+  const urbancode =
+    COMPANY_INFO["urbancode edutech solutions pvt ltd"] || {};
+  return {
+    tan: urbancode.tan || "",
+    pfNumber: urbancode.pfNumber || "",
+    esiRegNumber: urbancode.esiRegNumber || "",
+  };
+}
 
 function normalizeItems(items) {
   if (Array.isArray(items)) {
@@ -166,6 +203,10 @@ export function buildPayslipViewModel(employeeDetails = {}, incomes = [], deduct
     totalDeductions: Number(totalDeductions || 0),
     netPay: netPayNum,
     netPayWords: rupeesInWords(netPayNum),
-    remittedOn: employeeDetails.remittedOn || "",
+    remittedOn: employeeDetails.remittedOn
+      ? dayjs(employeeDetails.remittedOn).isValid()
+        ? dayjs(employeeDetails.remittedOn).format("DD-MMM-YYYY")
+        : employeeDetails.remittedOn
+      : "",
   };
 }
