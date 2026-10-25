@@ -87,6 +87,7 @@ export const API_ENDPOINTS = {
   // -----------------
   addHoliday: `${BASE_URL}/api/holidays`,
   getHolidays: `${BASE_URL}/api/holidays`,
+  getHolidaysPublic: `${BASE_URL}/api/holidays/public`,
   getHolidaysByMonth: `${BASE_URL}/api/holidays/filter`,
   deleteHoliday: (id) => `${BASE_URL}/api/holidays/delete/${id}`,
   editHoliday: (id) => `${BASE_URL}/api/holidays/update/${id}`,

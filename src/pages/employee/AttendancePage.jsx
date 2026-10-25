@@ -144,13 +144,19 @@ function AttendancePage() {
 
   const fetchHolidays = async () => {
     const token = localStorage.getItem("token");
+    const authHeaders = { Authorization: `Bearer ${token}` };
     try {
-      const res = await axios.get(API_ENDPOINTS.getHolidays, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // Main endpoint (works for all roles after backend v21 deploy)
+      const res = await axios.get(API_ENDPOINTS.getHolidays, { headers: authHeaders });
       setHolidays(res.data || []);
-    } catch (err) {
-      setHolidays([]);
+    } catch (_mainErr) {
+      try {
+        // Fallback: /public endpoint (no admin role required)
+        const res = await axios.get(API_ENDPOINTS.getHolidaysPublic, { headers: authHeaders });
+        setHolidays(res.data || []);
+      } catch {
+        setHolidays([]);
+      }
     }
   };
 
@@ -628,10 +634,13 @@ for (let d = 1; d <= daysInCurrentMonth; d++) {
 
 const holidayDaysInCurrentMonth = new Set();
 const holidayDateKeys = new Set();
+const holidayNameMap = {}; // dateKey -> holiday name
 holidays.forEach((h) => {
   const hDate = new Date(h.date);
   if (Number.isNaN(hDate.getTime())) return;
-  holidayDateKeys.add(hDate.toDateString());
+  const _hKey = hDate.toDateString();
+  holidayDateKeys.add(_hKey);
+  holidayNameMap[_hKey] = h.name || "Holiday";
   const dow = hDate.getDay();
   if (
     hDate.getFullYear() === currentYear &&
@@ -860,7 +869,16 @@ const remainingWorkingDays = Math.max(0, totalWorkingDays - presentDays);
                 } else if (selectedDate.getDay() === 0) {
                   return <div className="text-blue-600">Office Leave (Sunday)</div>;
                 } else if (holidayDateKeys.has(selectedDate.toDateString())) {
-                  return <div className="text-blue-600">Holiday</div>;
+                  const _hname = holidayNameMap[selectedDate.toDateString()] || "Holiday";
+                  return (
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2 text-blue-600 font-semibold">
+                        <span>🏖️</span>
+                        <span>Office Leave / Holiday</span>
+                      </div>
+                      <div className="text-blue-500 text-sm">{_hname}</div>
+                    </div>
+                  );
                 } else {
                   return <div className="text-red-500">No attendance record</div>;
                 }
