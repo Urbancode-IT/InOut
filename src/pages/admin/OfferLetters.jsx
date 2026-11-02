@@ -164,6 +164,92 @@ You will be responsible for performing duties associated with your role and any 
 
 We at **{{company}}** look forward to your valuable contribution in shaping confident communicators and future professionals.`,
   },
+  Consultant: {
+    title: 'OFFER LETTER',
+    body: `To,
+{{name}},
+
+**Dear {{name}},**
+
+We are pleased to offer you the position of **{{designation}}** at **{{company}}** effective from **{{joiningDate}}**. Based on our discussions and assessment of your profile we have agreed to offer a compensation of **INR {{salary}}/- PA**. We believe that your skills and experience will be valuable in supporting our students and contributing to the growth of our Study Abroad and Language Training services.
+
+**Position & Responsibilities**
+As a **{{designation}}**, your key responsibilities will include:
+- Counselling students regarding suitable study abroad opportunities, universities, courses, and countries.
+- Guiding students through the complete admission and application process.
+- Providing support and guidance for documentation, university applications, and related student requirements.
+- Assisting students in understanding visa processes and study abroad procedures.
+- Conducting and supporting language training programs, including English language and IELTS-related training, as applicable.
+- Assessing students' language proficiency and helping them improve their communication and language skills.
+- Maintaining professional communication and regular follow-ups with prospective students and parents.
+- Supporting student enrolment, counselling activities, seminars, workshops, and promotional events.
+- Coordinating with the management and internal teams to ensure a smooth student journey.
+
+**Terms of Employment**
+Your employment will be subject to the terms and conditions, policies, procedures, and guidelines of **{{company}}**.
+
+Your date of joining, compensation, working hours, probation period, and other employment terms will be communicated and mutually agreed upon as part of your appointment process. Any applicable incentives, bonuses, or performance-based compensation will be governed by the company's policies and may be based on individual and organizational performance.
+
+We expect you to maintain the highest standards of professionalism, integrity, confidentiality, and commitment while representing the organization and interacting with students, parents, universities, and other stakeholders. We are confident that your contribution will play an important role in helping students achieve their international education goals and strengthening Urbancode's Study Abroad and Language Training services.
+
+We are delighted to welcome you to **{{company}}** and look forward to having you as part of our team.
+
+We wish you a successful and rewarding career with us.`,
+    secondSheetTitle: 'URBANCODE EDUTECH',
+    secondSheetSubtitle: 'Rules & Regulations – Educational Counsellor',
+    secondSheetBody: `This document outlines the key professional responsibilities, performance expectations, workplace conduct, and operational standards applicable to the role of **Educational Counsellor** at **Urbancode Edutech**.
+
+**1. Student Counselling & Professional Communication**
+- Provide **accurate and transparent information** about courses, eligibility, fees, duration, curriculum, career pathways, and placement support.
+- Understand each student's educational background and career goals before recommending a suitable program.
+- Maintain a **professional, polite, and student-focused approach** with students and parents.
+- **Do not make false promises or unauthorized guarantees** regarding jobs, salary packages, admissions, visas, or other outcomes.
+- Escalate complex queries, complaints, and exceptional cases to the reporting manager.
+
+**2. Lead Management & Follow-Up**
+- Record and maintain **all assigned enquiries and follow-up activities** in the approved CRM/lead-management system.
+- Ensure timely follow-ups through approved calls, emails, and communication channels.
+- Maintain accurate records of counselling sessions, student interests, admission status, and pending actions.
+- **No enquiry should be neglected, left untracked, or incorrectly updated.**
+
+**3. Admissions, Fees & Payments**
+- Clearly explain approved **course fees, instalment options, discounts, payment deadlines, and refund policies**.
+- Process or accept payments **only through officially authorized channels**.
+- **Unauthorized discounts, fee waivers, payment extensions, or financial commitments are strictly prohibited.**
+- Ensure admission forms, payment records, and required documents are completed accurately.
+
+**4. Performance & Reporting**
+- Work towards assigned **enquiry, conversion, admission, counselling, and follow-up targets**.
+- Maintain daily activity records and submit **daily, weekly, or monthly reports** as required.
+- Participate actively in team meetings, training sessions, and performance reviews.
+- Performance will be evaluated based on **counselling quality, student satisfaction, lead discipline, conversions, admissions, and policy compliance**.
+
+**5. Attendance & Workplace Discipline**
+- Follow the organization's **working hours, attendance, leave, and break policies**.
+- Report on time and inform the reporting manager promptly regarding any absence or delay.
+- Maintain **professional behaviour, respectful communication, and appropriate workplace conduct** at all times.
+- Follow lawful instructions and approved organizational policies.
+
+**6. Confidentiality & Data Protection**
+- Protect all **student information, contact details, academic records, payment information, enquiry data, and company documents**.
+- **Do not share, copy, download, transfer, or use institutional data without authorization.**
+- Use official systems and communication channels wherever required.
+- Return all company assets, documents, and access credentials upon separation.
+
+**7. Ethical Conduct & Professional Integrity**
+- Represent **Urbancode Edutech honestly and professionally**.
+- **Unauthorized fee collection, personal payments, data manipulation, false reporting, fraud, or misrepresentation are strictly prohibited.**
+- Treat all students fairly, respectfully, and without inappropriate pressure.
+- Disclose any actual or potential conflict of interest to management.
+
+**8. Coordination & Continuous Improvement**
+- Coordinate effectively with **Admissions, Training, Placement, Accounts, and Digital Marketing teams**.
+- Participate in product knowledge, counselling, communication, and professional development training.
+- Stay updated on course offerings, curriculum changes, institutional policies, and approved procedures.
+
+**9. Policy Compliance**
+Failure to comply with these rules may result in **counselling, warnings, performance improvement measures, disciplinary action, or termination**, depending on the seriousness of the violation and applicable law.`,
+  },
 };
 
 const OfferLetters = () => {
@@ -194,6 +280,9 @@ const OfferLetters = () => {
   const [letterTemplate, setLetterTemplate] = useState('Standard');
   const [titleText, setTitleText] = useState(LETTER_TEMPLATES.Standard.title);
   const [body, setBody] = useState(LETTER_TEMPLATES.Standard.body);
+  const [secondSheetTitle, setSecondSheetTitle] = useState('');
+  const [secondSheetSubtitle, setSecondSheetSubtitle] = useState('');
+  const [secondSheetBody, setSecondSheetBody] = useState('');
   const [pdfUrl, setPdfUrl] = useState(null);
   const [pdfBytesData, setPdfBytesData] = useState(null);
   const [generating, setGenerating] = useState(false);
@@ -558,6 +647,183 @@ const OfferLetters = () => {
       }
 
       await drawSignOffBlock(page, pdfDoc, fontRegular, fontBold, fontSize, cursorY - SIGN_OFF_GAP);
+
+      if (secondSheetBody?.trim()) {
+        const sheet2TopMargin = 54;
+        const sheet2BottomMargin = 48;
+        const bulletIndent = 14;
+        const sheet2LetterSpacing = 0.05;
+        const sheet2Source = sanitizeTextForStandardFonts(
+          replacePlaceholders(secondSheetBody, form),
+          [fontRegular, fontBold]
+        ).split('\n');
+
+        const isBulletLine = (line) => /^\s*[-•]\s+/.test(line);
+        const isSectionHeader = (line) => {
+          const trimmed = line.trim();
+          return /^\*\*\d+\.\s+[^*]+\*\*$/.test(trimmed) || /^\d+\.\s+/.test(trimmed);
+        };
+
+        const buildSheet2Layout = (fs) => {
+          const lh = fs + 3;
+          const pGap = 4;
+          const sw = fontRegular.widthOfTextAtSize(' ', fs) + sheet2LetterSpacing;
+          const measure = (text, font) => {
+            if (!text) return 0;
+            return font.widthOfTextAtSize(text, fs) + sheet2LetterSpacing * Math.max(0, text.length - 1);
+          };
+          const lines = [];
+          for (const rawLine of sheet2Source) {
+            const trimmedRaw = rawLine.trim();
+            const header = isSectionHeader(rawLine) || isHeaderLine(rawLine);
+            const bullet = isBulletLine(rawLine);
+            if (header && lines.length > 0) {
+              lines.push({ words: [], isParagraphBreak: true, gap: 12 });
+            }
+
+            const textForTokens = bullet
+              ? trimmedRaw.replace(/^[-•]\s+/, '')
+              : trimmedRaw;
+            const segments = tokenizeLineForBold(textForTokens);
+            const words = [];
+            if (bullet) words.push({ text: '-', bold: false });
+            segments.forEach((seg) => {
+              seg.text.split(/\s+/).filter(Boolean).forEach((w) => {
+                words.push({ text: w, bold: !!seg.bold || header });
+              });
+            });
+            if (words.length === 0) {
+              lines.push({ words: [], isParagraphBreak: true, gap: 6 });
+              continue;
+            }
+
+            const indent = bullet ? bulletIndent : 0;
+            const usableWidth = contentWidth - indent;
+            let lineWords = [];
+            let lineWidth = 0;
+            let isFirstWrapped = true;
+            const pushLine = () => {
+              if (lineWords.length === 0) return;
+              lines.push({
+                words: lineWords,
+                isParagraphBreak: false,
+                indent: isFirstWrapped ? indent : indent + (bullet ? 10 : 0),
+                isHeader: header && isFirstWrapped,
+              });
+              isFirstWrapped = false;
+              lineWords = [];
+              lineWidth = 0;
+            };
+            for (const wobj of words) {
+              const usedFont = wobj.bold ? fontBold : fontRegular;
+              const wordWidth = measure(wobj.text, usedFont);
+              const extra = lineWords.length > 0 ? sw : 0;
+              if (lineWidth + extra + wordWidth > usableWidth) pushLine();
+              lineWords.push(wobj);
+              lineWidth = lineWidth + (lineWords.length > 1 ? sw : 0) + wordWidth;
+            }
+            pushLine();
+            lines.push({
+              words: [],
+              isParagraphBreak: true,
+              gap: header ? 5 : (bullet ? 2 : 4),
+            });
+          }
+          return { lines, lineHeight: lh, paragraphGap: pGap, fontSize: fs, spaceWidth: sw, measure };
+        };
+
+        let sheet2Layout = buildSheet2Layout(10.5);
+        const pageBodyHeight = height - sheet2TopMargin - sheet2BottomMargin - 70;
+        for (
+          let size = 10.5;
+          size >= 9 && sheet2Layout.lines.filter((l) => !l.isParagraphBreak).length * sheet2Layout.lineHeight > pageBodyHeight * 2.4;
+          size -= 0.5
+        ) {
+          sheet2Layout = buildSheet2Layout(size);
+        }
+
+        const addPlainPage = () => {
+          pdfDoc.addPage([width, height]);
+          return pdfDoc.getPage(pdfDoc.getPageCount() - 1);
+        };
+
+        let sheet2Page = addPlainPage();
+        let sheet2Y = height - sheet2TopMargin;
+        const s2Title = sanitizeTextForStandardFonts((secondSheetTitle || '').trim(), [fontRegular, fontBold]);
+        const s2Subtitle = sanitizeTextForStandardFonts((secondSheetSubtitle || '').trim(), [fontRegular, fontBold]);
+
+        if (s2Title) {
+          const s2TitleSize = 14;
+          const s2TitleWidth = fontBold.widthOfTextAtSize(s2Title, s2TitleSize);
+          sheet2Page.drawText(s2Title, {
+            x: margins.left + (contentWidth - s2TitleWidth) / 2,
+            y: sheet2Y - s2TitleSize,
+            size: s2TitleSize,
+            font: fontBold,
+            color: titleColor,
+          });
+          sheet2Y -= s2TitleSize + 10;
+        }
+        if (s2Subtitle) {
+          const s2SubSize = 12;
+          const s2SubWidth = fontBold.widthOfTextAtSize(s2Subtitle, s2SubSize);
+          sheet2Page.drawText(s2Subtitle, {
+            x: s2SubWidth > contentWidth
+              ? margins.left
+              : margins.left + (contentWidth - s2SubWidth) / 2,
+            y: sheet2Y - s2SubSize,
+            size: s2SubSize,
+            font: fontBold,
+            color: titleColor,
+          });
+          sheet2Y -= s2SubSize + 16;
+        }
+
+        const {
+          lines: sheet2Lines,
+          lineHeight: s2Lh,
+          paragraphGap: s2Gap,
+          fontSize: s2Fs,
+          spaceWidth: s2Sw,
+          measure: s2Measure,
+        } = sheet2Layout;
+
+        for (const vl of sheet2Lines) {
+          if (vl.isParagraphBreak) {
+            sheet2Y -= (vl.gap ?? s2Gap);
+            continue;
+          }
+          if (vl.words.length === 0) continue;
+
+          if (sheet2Y - s2Lh < sheet2BottomMargin) {
+            sheet2Page = addPlainPage();
+            sheet2Y = height - sheet2TopMargin;
+          }
+
+          let x = margins.left + (vl.indent || 0);
+          for (let i = 0; i < vl.words.length; i++) {
+            const wobj = vl.words[i];
+            const usedFont = wobj.bold ? fontBold : fontRegular;
+            let cx = x;
+            for (let ci = 0; ci < wobj.text.length; ci++) {
+              const ch = wobj.text[ci];
+              sheet2Page.drawText(ch, {
+                x: cx,
+                y: sheet2Y,
+                size: s2Fs,
+                font: usedFont,
+                color: wobj.bold ? titleColor : bodyColor,
+              });
+              cx += usedFont.widthOfTextAtSize(ch, s2Fs) + sheet2LetterSpacing;
+            }
+            x += s2Measure(wobj.text, usedFont);
+            if (i !== vl.words.length - 1) x += s2Sw;
+          }
+          sheet2Y -= s2Lh;
+        }
+      }
+
+      // Letterhead is only on page 1; still safe to run footer cleanup on all pages
       await shrinkLetterheadPhoneIconOnAllPages(pdfDoc);
 
       const pdfBytes = await pdfDoc.save();
@@ -753,10 +1019,14 @@ const OfferLetters = () => {
                   setLetterTemplate(key);
                   setTitleText(preset.title);
                   setBody(preset.body);
+                  setSecondSheetTitle(preset.secondSheetTitle || '');
+                  setSecondSheetSubtitle(preset.secondSheetSubtitle || '');
+                  setSecondSheetBody(preset.secondSheetBody || '');
                 }}
               >
                 <MenuItem value="Standard">Standard (any role)</MenuItem>
                 <MenuItem value="Employment">Employment Offer Letter (Edutech wording)</MenuItem>
+                <MenuItem value="Consultant">Consultant Offer Letter</MenuItem>
               </Select>
             </FormControl>
 
@@ -777,6 +1047,34 @@ const OfferLetters = () => {
               onChange={(e) => setBody(e.target.value)}
               sx={{ mb: 2 }}
             />
+
+            {secondSheetBody ? (
+              <>
+                <TextField
+                  label="Second Sheet Title"
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  value={secondSheetTitle}
+                  onChange={(e) => setSecondSheetTitle(e.target.value)}
+                />
+                <TextField
+                  label="Second Sheet Subtitle"
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  value={secondSheetSubtitle}
+                  onChange={(e) => setSecondSheetSubtitle(e.target.value)}
+                />
+                <TextField
+                  label="Second Sheet Body (Rules & Regulations)"
+                  multiline
+                  minRows={10}
+                  fullWidth
+                  value={secondSheetBody}
+                  onChange={(e) => setSecondSheetBody(e.target.value)}
+                  sx={{ mb: 2 }}
+                />
+              </>
+            ) : null}
 
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Signature (upload PNG/JPG)</Typography>
