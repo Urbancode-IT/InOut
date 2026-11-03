@@ -323,7 +323,7 @@ export default function ProfileCard() {
             lineHeight: 1.45,
           }}
         >
-          Profile incomplete — fill these to avoid attendance lock:{' '}
+          Profile incomplete — fill these within 1 day to avoid attendance lock:{' '}
           <strong>{missingLabels.join(', ')}</strong>
         </div>
       )}

@@ -18,6 +18,7 @@ export const PROFILE_FIELD_LABELS = {
   'bankDetails.bankingName': 'Bank name',
   'bankDetails.bankAccountNumber': 'Bank account number',
   'bankDetails.ifscCode': 'IFSC code',
+  aadharCard: 'Aadhaar card',
   phone: 'Phone',
   profilePic: 'Profile photo',
   skills: 'Skills',
@@ -136,11 +137,12 @@ export const mergeUserRecords = (primary, secondary) => {
 
 /**
  * Must stay in sync with backend utils/profileCompletion.js required fields:
- * address, bloodGroup, dateOfBirth, bank name / account / IFSC.
+ * address, bloodGroup, dateOfBirth, bank name / account / IFSC, aadharCard.
  */
 export const inferMissingProfileFields = (user) => {
   if (!user || typeof user !== 'object') return [];
   const bank = user.bankDetails || {};
+  const aadhar = user.aadharCard;
   const missing = [];
 
   if (!firstFilled(user.address, user.residentialAddress)) missing.push('address');
@@ -153,6 +155,15 @@ export const inferMissingProfileFields = (user) => {
     missing.push('bankDetails.bankAccountNumber');
   }
   if (!firstFilled(bank.ifscCode, bank.ifsc)) missing.push('bankDetails.ifscCode');
+  if (
+    !firstFilled(
+      typeof aadhar === 'string' ? aadhar : null,
+      aadhar?.url,
+      aadhar?.secure_url
+    )
+  ) {
+    missing.push('aadharCard');
+  }
 
   return missing;
 };
