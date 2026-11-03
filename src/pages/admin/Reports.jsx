@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { API_ENDPOINTS } from "../../utils/api";
 import { localDateYMD } from "../../utils/localDate";
+import { skipsAttendanceReports as isDirectorOrFounder } from "../../utils/skipAttendance";
 import { FiRefreshCw, FiHome as WFHIcon } from 'react-icons/fi';
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -280,22 +281,7 @@ const isActiveEmployee = (user) => {
   return true;
 };
 
-/** Leadership titles are not included in monthly attendance reports. */
-const isDirectorOrFounder = (user) => {
-  const titles = [
-    user?.position,
-    ...getUserWorks(user).map((w) => w.position),
-  ]
-    .map((t) => String(t || '').trim().toLowerCase().replace(/\s+/g, ' '))
-    .filter(Boolean);
-
-  return titles.some((title) => {
-    if (title === 'director') return true;
-    if (title.includes('managing director')) return true;
-    if (title.includes('founder')) return true;
-    return false;
-  });
-};
+/** Leadership / Management / Freelancer are not included in monthly attendance reports. */
 
 const findUserForEmployee = (displayName, schedules, allUsers, logs) => {
   const { resolvedUserId, schedule } = resolveEmployeeContext(displayName, schedules, allUsers, logs);

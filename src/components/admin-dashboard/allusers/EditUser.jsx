@@ -351,16 +351,6 @@ const EditUser = ({ userId, onClose, onUpdated, pageMode = false }) => {
                 <input type="checkbox" id="isActive" name="isActive" checked={form.isActive} onChange={handleChange} />
                 <label htmlFor="isActive">Active User</label>
               </div>
-              <div className="uc-form-check">
-                <input
-                  type="checkbox"
-                  id="skipAttendanceReminders"
-                  name="skipAttendanceReminders"
-                  checked={Boolean(form.skipAttendanceReminders)}
-                  onChange={handleChange}
-                />
-                <label htmlFor="skipAttendanceReminders">Skip attendance reminder emails</label>
-              </div>
             </div>
           </div>
 
@@ -368,7 +358,10 @@ const EditUser = ({ userId, onClose, onUpdated, pageMode = false }) => {
             <div className="uc-form-section-head">
               <div>
                 <h3>Work Assignments</h3>
-                <p>One person can have multiple company / department / role entries.</p>
+                <p>
+                  One person can have multiple company / department / role entries.
+                  Set Department to <strong>Management</strong> or <strong>Freelancer</strong> to skip check-in / check-out.
+                </p>
               </div>
               <button type="button" className="uc-btn uc-btn-indigo" onClick={addWork}>
                 <FiPlus size={16} />
@@ -406,19 +399,28 @@ const EditUser = ({ userId, onClose, onUpdated, pageMode = false }) => {
                     <label>Department</label>
                     <input
                       type="text"
+                      list={`departments-${index}`}
                       value={work.department}
                       onChange={(e) => handleWorkChange(index, 'department', e.target.value)}
-                      placeholder="Department"
+                      placeholder="e.g. Management, Freelancer"
                     />
+                    <datalist id={`departments-${index}`}>
+                      <option value="Management" />
+                      <option value="Freelancer" />
+                    </datalist>
                   </div>
                   <div className="uc-form-field" style={{ marginBottom: 0 }}>
                     <label>Designation</label>
                     <input
                       type="text"
+                      list={`positions-${index}`}
                       value={work.position}
                       onChange={(e) => handleWorkChange(index, 'position', e.target.value)}
                       placeholder="Designation"
                     />
+                    <datalist id={`positions-${index}`}>
+                      <option value="Freelancer" />
+                    </datalist>
                   </div>
                 </div>
               </div>

@@ -39,6 +39,7 @@ import {
   mergeUserRecords,
   unwrapUserPayload,
 } from "../../utils/attendanceLock";
+import { skipsCheckInOut } from "../../utils/skipAttendance";
 import { useTheme } from "../../utils/useTheme";
 import { useShake } from "../../utils/useShake";
 import ProfileHeader from "../../components/attendance/ProfileHeader";
@@ -290,12 +291,12 @@ function AttendancePage() {
     if (!isSelf || !attendanceReady || !wantedType || autoCameraOpenedRef.current) {
       return;
     }
-    if (type !== wantedType || isCapturing || attendanceLocked) {
+    if (type !== wantedType || isCapturing || attendanceLocked || skipsCheckInOut(user)) {
       return;
     }
     autoCameraOpenedRef.current = true;
     openAttendanceCamera();
-  }, [isSelf, attendanceReady, wantedType, type, isCapturing, attendanceLocked]);
+  }, [isSelf, attendanceReady, wantedType, type, isCapturing, attendanceLocked, user]);
 
   const {
     needsPermission: needsShakePermission,
@@ -303,7 +304,13 @@ function AttendancePage() {
     permission: shakePermission,
     isDesktop,
   } = useShake({
-    enabled: isSelf && !!type && !isCapturing && !showCalendarModal && !attendanceLocked,
+    enabled:
+      isSelf &&
+      !!type &&
+      !isCapturing &&
+      !showCalendarModal &&
+      !attendanceLocked &&
+      !skipsCheckInOut(user),
     onShake: () => {
       openAttendanceCamera();
     },
@@ -920,7 +927,19 @@ const remainingWorkingDays = Math.max(0, totalWorkingDays - presentDays);
         setSelectedDate={setSelectedDate}
       />
 
-      {isSelf && attendanceLocked && !isCapturing && (
+      {isSelf && skipsCheckInOut(user) && !isCapturing && (
+        <div className="att-lock-banner" role="status">
+          <p className="att-lock-banner-title">
+            <FiCheckCircle />
+            Check-in not required
+          </p>
+          <p className="att-lock-banner-text">
+            Management and Freelancer accounts do not need to check in or check out.
+          </p>
+        </div>
+      )}
+
+      {isSelf && attendanceLocked && !isCapturing && !skipsCheckInOut(user) && (
         <div className="att-lock-banner" role="status">
           <p className="att-lock-banner-title">
             <FiXCircle />
@@ -941,7 +960,7 @@ const remainingWorkingDays = Math.max(0, totalWorkingDays - presentDays);
         </div>
       )}
 
-      {isSelf && type && !isCapturing && !attendanceLocked && (
+      {isSelf && type && !isCapturing && !attendanceLocked && !skipsCheckInOut(user) && (
         <>
           <button
             type="button"

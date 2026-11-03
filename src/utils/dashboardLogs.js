@@ -1,4 +1,5 @@
 import { localDateYMD } from './localDate';
+import { skipsCheckInOut } from './skipAttendance';
 
 export const normalizeLogs = (data) => (Array.isArray(data) ? data : []);
 
@@ -56,7 +57,12 @@ export const mapRawAttendanceRecords = (records = [], users = []) => {
 };
 
 export const activeEmployees = (users = []) =>
-  users.filter((u) => u.role === 'employee' && u.isActive !== false);
+  users.filter(
+    (u) =>
+      u.role === 'employee' &&
+      u.isActive !== false &&
+      !skipsCheckInOut(u)
+  );
 
 /** Build present/absent counts from loaded logs + user list (summary API fallback). */
 export const buildSummaryFromLogs = (logs = [], users = [], dateFilter) => {

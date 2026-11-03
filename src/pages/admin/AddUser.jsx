@@ -137,7 +137,25 @@ const AddUser = () => {
                 <option key={b} value={b}>{b}</option>
               ))}
             </SelectField>
-            <Field label="Department" name="department" value={form.department} onChange={handleChange} />
+            <div className="uc-form-field">
+              <label htmlFor="department">Department</label>
+              <input
+                id="department"
+                type="text"
+                name="department"
+                list="department-options"
+                value={form.department}
+                onChange={handleChange}
+                placeholder="e.g. Management, Freelancer"
+              />
+              <datalist id="department-options">
+                <option value="Management" />
+                <option value="Freelancer" />
+              </datalist>
+              <p style={{ margin: '6px 0 0', fontSize: 12, opacity: 0.75 }}>
+                Management / Freelancer = no check-in or check-out
+              </p>
+            </div>
             <Field label="Salary" name="salary" type="number" value={form.salary} onChange={handleChange} />
             <Field label="Qualification" name="qualification" value={form.qualification} onChange={handleChange} />
             <Field label="Date of Joining" name="dateOfJoining" type="date" value={form.dateOfJoining} onChange={handleChange} />
