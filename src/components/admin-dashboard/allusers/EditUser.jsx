@@ -360,7 +360,7 @@ const EditUser = ({ userId, onClose, onUpdated, pageMode = false }) => {
                 <h3>Work Assignments</h3>
                 <p>
                   One person can have multiple company / department / role entries.
-                  Set Department to <strong>Management</strong> or <strong>Freelancer</strong> to skip check-in / check-out.
+                  Skip check-in / check-out: <strong>Freelancer</strong>, <strong>Director/Founder</strong>, or <strong>Management</strong> — except <strong>Placement Lead</strong> (still required).
                 </p>
               </div>
               <button type="button" className="uc-btn uc-btn-indigo" onClick={addWork}>
@@ -419,6 +419,9 @@ const EditUser = ({ userId, onClose, onUpdated, pageMode = false }) => {
                       placeholder="Designation"
                     />
                     <datalist id={`positions-${index}`}>
+                      <option value="Placement Lead" />
+                      <option value="Director" />
+                      <option value="Founder" />
                       <option value="Freelancer" />
                     </datalist>
                   </div>

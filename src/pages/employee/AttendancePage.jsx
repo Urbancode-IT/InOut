@@ -934,7 +934,7 @@ const remainingWorkingDays = Math.max(0, totalWorkingDays - presentDays);
             Check-in not required
           </p>
           <p className="att-lock-banner-text">
-            Management and Freelancer accounts do not need to check in or check out.
+            Director / Founder, Management (except Placement Lead), and Freelancer accounts do not need to check in or check out.
           </p>
         </div>
       )}

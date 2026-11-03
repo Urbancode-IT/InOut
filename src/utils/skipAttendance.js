@@ -20,37 +20,55 @@ const isFreelancerLabel = (label) =>
 const isManagementDepartment = (label) =>
   label === 'management' || label === 'managment';
 
+const isPlacementLead = (label) =>
+  label === 'placement lead' || label.includes('placement lead');
+
+const isDirectorOrFounderTitle = (title) => {
+  if (title === 'director') return true;
+  if (title.includes('managing director')) return true;
+  if (title.includes('founder')) return true;
+  return false;
+};
+
 /**
- * Management department and Freelancer staff do not use check-in / check-out.
- * Match top-level or works[].department / works[].position.
+ * Who skips check-in / check-out:
+ * - Freelancer department or position
+ * - Director / Founder roles
+ * - Management department — except Placement Lead (they must check in / out)
  */
 export const skipsCheckInOut = (user) => {
   if (!user) return false;
   const departments = collectLabels(user, 'department');
   const positions = collectLabels(user, 'position');
 
-  if (departments.some((d) => isManagementDepartment(d) || isFreelancerLabel(d))) {
+  if (departments.some(isFreelancerLabel) || positions.some(isFreelancerLabel)) {
     return true;
   }
-  if (positions.some(isFreelancerLabel)) return true;
+
+  if (positions.some(isDirectorOrFounderTitle)) {
+    return true;
+  }
+
+  // Placement Lead in Management still needs attendance
+  if (positions.some(isPlacementLead)) {
+    return false;
+  }
+
+  if (departments.some(isManagementDepartment)) {
+    return true;
+  }
+
   return false;
 };
 
 /** Leadership titles excluded from monthly attendance reports (existing behavior). */
 export const isDirectorOrFounder = (user) => {
   const titles = collectLabels(user, 'position');
-  return titles.some((title) => {
-    if (title === 'director') return true;
-    if (title.includes('managing director')) return true;
-    if (title.includes('founder')) return true;
-    return false;
-  });
+  return titles.some(isDirectorOrFounderTitle);
 };
 
-/** Reminder emails: Directors + Management + Freelancer. */
-export const skipsAttendanceReminders = (user) =>
-  skipsCheckInOut(user) ||
-  collectLabels(user, 'position').some((title) => title === 'director');
+/** Reminder emails: skip for anyone who does not use check-in / check-out. */
+export const skipsAttendanceReminders = (user) => skipsCheckInOut(user);
 
 /** Monthly reports / absent counts tied to attendance tracking. */
 export const skipsAttendanceReports = (user) =>

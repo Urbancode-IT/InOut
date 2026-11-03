@@ -153,7 +153,7 @@ const AddUser = () => {
                 <option value="Freelancer" />
               </datalist>
               <p style={{ margin: '6px 0 0', fontSize: 12, opacity: 0.75 }}>
-                Management / Freelancer = no check-in or check-out
+                Freelancer / Director-Founder / Management = no check-in (Placement Lead still required)
               </p>
             </div>
             <Field label="Salary" name="salary" type="number" value={form.salary} onChange={handleChange} />
