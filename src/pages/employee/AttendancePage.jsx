@@ -918,6 +918,7 @@ const remainingWorkingDays = Math.max(0, totalWorkingDays - presentDays);
         attendanceData={attendanceHistory}
         totalWorkingDays={totalWorkingDays}
         remainingDays={remainingWorkingDays}
+        selectedDate={selectedDate}
       />
 
       <ActivityLog activities={filteredLogs} />

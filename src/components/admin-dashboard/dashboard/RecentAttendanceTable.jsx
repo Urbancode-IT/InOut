@@ -9,6 +9,7 @@ import {
   resolveAttendanceImageUrl,
 } from '../../../utils/attendanceImage';
 import { localDateYMD } from '../../../utils/localDate';
+import { formatHoursStacked } from '../../../utils/workHours';
 import SafeImage from '../../common/SafeImage';
 
 const formatTime = (ts) =>
@@ -17,15 +18,6 @@ const formatTime = (ts) =>
     minute: '2-digit',
     hour12: false,
   });
-
-const formatHoursStacked = (checkInTs, checkOutTs) => {
-  const diffMs = new Date(checkOutTs) - new Date(checkInTs);
-  if (!Number.isFinite(diffMs) || diffMs < 0) return null;
-  const totalMinutes = Math.floor(diffMs / 60000);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return { hours, minutes };
-};
 
 const avatarLetter = (name = '') => (name.trim().charAt(0) || '?').toUpperCase();
 
@@ -143,14 +135,10 @@ const RecentAttendanceTable = ({ logs = [], selectedDate = '' }) => {
                     </td>
                     <td className="dash-hours">
                       {entry.checkIn && entry.checkOut
-                        ? (() => {
-                            const stacked = formatHoursStacked(
-                              entry.checkIn.timestamp,
-                              entry.checkOut.timestamp
-                            );
-                            if (!stacked) return '—';
-                            return `${stacked.hours}h ${stacked.minutes}m`;
-                          })()
+                        ? formatHoursStacked(
+                            entry.checkIn.timestamp,
+                            entry.checkOut.timestamp
+                          )?.label || '—'
                         : '—'}
                     </td>
                     <td>

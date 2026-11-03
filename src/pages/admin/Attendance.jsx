@@ -57,7 +57,7 @@ const Attendance = () => {
         />
       </div>
 
-      <AttendanceTable records={records} />
+      <AttendanceTable records={records} users={users} />
     </div>
   );
 };

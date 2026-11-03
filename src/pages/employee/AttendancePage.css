@@ -19,6 +19,8 @@
   --att-red-bg: #fee2e2;
   --att-purple: #7c3aed;
   --att-purple-bg: #f3e8ff;
+  --att-teal-card: #0d9488;
+  --att-teal-card-bg: #ccfbf1;
   --att-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
   min-height: 100vh;
   background: var(--att-bg);
@@ -42,6 +44,7 @@
   --att-orange-bg: #7c2d12;
   --att-red-bg: #7f1d1d;
   --att-purple-bg: #4c1d95;
+  --att-teal-card-bg: #134e4a;
   --att-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
 }
 
@@ -379,6 +382,7 @@
 .att-today-blue { background: var(--att-blue-bg); border-color: #99e0d8; }
 .att-today-purple { background: var(--att-purple-bg); border-color: #ddd6fe; }
 .att-today-orange { background: var(--att-orange-bg); border-color: #fed7aa; }
+.att-today-teal { background: var(--att-teal-card-bg); border-color: #99f6e4; }
 
 .att-today-top {
   display: flex;
@@ -408,6 +412,8 @@
 .att-today-purple .att-today-value { color: var(--att-purple); }
 .att-today-orange .att-today-icon,
 .att-today-orange .att-today-value { color: var(--att-orange); }
+.att-today-teal .att-today-icon,
+.att-today-teal .att-today-value { color: var(--att-teal-card); }
 
 .att-today-value {
   margin: 0;
@@ -435,6 +441,7 @@
 .att-today-blue .att-today-badge { color: var(--att-teal-dark); }
 .att-today-purple .att-today-badge { color: var(--att-purple); }
 .att-today-orange .att-today-badge { color: var(--att-orange); }
+.att-today-teal .att-today-badge { color: var(--att-teal-card); }
 
 /* Activity — admin table-card style */
 .att-activity {
