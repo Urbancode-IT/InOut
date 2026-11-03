@@ -11,8 +11,6 @@ import { API_ENDPOINTS } from '../../utils/api';
 
 const SIGNATORY_NAME = 'Sivagaminathan';
 const SIGNATORY_TITLE = 'Founder';
-const COMPANY_EMAIL = 'admin@urbancode.in';
-const COMPANY_PHONE = '+91 98787 98797';
 
 const InternshipOfferLetter = () => {
   const [form, setForm] = useState({
@@ -158,8 +156,8 @@ Authorized Signatory`;
       const bodyStartY = titleY - 14;
       const hasSignature = !!(signatureBytes && signatureFile);
       // reserve room for the sign-off block, which is drawn separately below the wrapped body:
-      // "Warm Regards," + signature + name + Founder + company + email + phone
-      const signOffReserve = hasSignature ? 175 : 115;
+      // "Warm Regards," + signature + name + Founder + company
+      const signOffReserve = hasSignature ? 155 : 105;
       const maxBodyHeight = bodyStartY - margins.bottom - signOffReserve;
 
       // allow placeholders in the body like {{studentName}} and also respect manual edits
@@ -254,7 +252,7 @@ Authorized Signatory`;
         cursorY -= layout.lineHeight;
       }
 
-      // Sign-off block, drawn right after the wrapped body: Warm Regards -> Signature -> For Company -> Authorized Signatory
+      // Sign-off block: Warm Regards -> Signature -> name -> Founder -> company
       let signY = cursorY - 4;
       page.drawText('Warm Regards,', { x: margins.left, y: signY, size: layout.fontSize, font: fontRegular, color: bodyColor });
       signY -= layout.lineHeight + 4;
@@ -262,8 +260,12 @@ Authorized Signatory`;
       if (hasSignature) {
         try {
           const sigUint8 = new Uint8Array(signatureBytes);
-          const mime = signatureFile.type || '';
-          const embeddedSig = mime.includes('png') ? await pdfDoc.embedPng(sigUint8) : await pdfDoc.embedJpg(sigUint8);
+          let embeddedSig;
+          try {
+            embeddedSig = await pdfDoc.embedPng(sigUint8);
+          } catch {
+            embeddedSig = await pdfDoc.embedJpg(sigUint8);
+          }
           const maxSigWidth = 120; const maxSigHeight = 48;
           const origW = embeddedSig.width || 1; const origH = embeddedSig.height || 1;
           const scale = Math.min(1, maxSigWidth / origW, maxSigHeight / origH);
@@ -273,13 +275,15 @@ Authorized Signatory`;
           signY -= sigDims.height + 6;
         } catch (sigErr) {
           console.error('Signature embed error', sigErr);
+          page.drawText('Signature', { x: margins.left, y: signY, size: layout.fontSize, font: fontRegular, color: bodyColor });
           signY -= layout.lineHeight + 6;
         }
       } else {
-        signY -= 6;
+        page.drawText('Signature', { x: margins.left, y: signY, size: layout.fontSize, font: fontRegular, color: bodyColor });
+        signY -= layout.lineHeight + 6;
       }
 
-      // Signatory name (bold), then designation, company, and contact details (normal weight)
+      // Signatory name (bold), then designation and company (normal weight)
       page.drawText(SIGNATORY_NAME, { x: margins.left, y: signY, size: layout.fontSize, font: fontBold, color: titleColor });
       signY -= layout.lineHeight;
 
@@ -289,13 +293,7 @@ Authorized Signatory`;
       const companyName = form.company?.trim() || '';
       if (companyName) {
         page.drawText(companyName, { x: margins.left, y: signY, size: layout.fontSize, font: fontRegular, color: bodyColor });
-        signY -= layout.lineHeight;
       }
-
-      page.drawText(COMPANY_EMAIL, { x: margins.left, y: signY, size: layout.fontSize, font: fontRegular, color: bodyColor });
-      signY -= layout.lineHeight;
-
-      page.drawText(`Phone: ${COMPANY_PHONE}`, { x: margins.left, y: signY, size: layout.fontSize, font: fontRegular, color: bodyColor });
 
   await shrinkLetterheadPhoneIconOnAllPages(pdfDoc);
   const pdfBytes = await pdfDoc.save();
