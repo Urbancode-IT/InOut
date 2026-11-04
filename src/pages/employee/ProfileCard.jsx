@@ -281,15 +281,18 @@ export default function ProfileCard() {
       toast.success('Aadhaar Card uploaded successfully');
     } catch (err) {
       console.error('Aadhaar upload failed', err);
+      const status = err.response?.status;
       const errMsg =
         err.response?.data?.message ||
         err.response?.data?.msg ||
         err.response?.data?.error ||
-        (err.code === 'ECONNABORTED'
-          ? 'Upload timed out. Try a smaller JPG/PNG or PDF (max 5 MB).'
-          : err.message === 'Network Error'
-            ? 'Network error while uploading. Check connection and try again.'
-            : 'Failed to upload Aadhaar Card');
+        (status === 413
+          ? 'File too large for server. Use a JPG/PNG under 1 MB, or ask admin to raise nginx upload limit.'
+          : err.code === 'ECONNABORTED'
+            ? 'Upload timed out. Try a smaller JPG/PNG or PDF (max 5 MB).'
+            : err.message === 'Network Error'
+              ? 'Network error while uploading. Check connection and try again.'
+              : 'Failed to upload Aadhaar Card');
       toast.error(errMsg);
     } finally {
       setUploadingAadhar(false);
