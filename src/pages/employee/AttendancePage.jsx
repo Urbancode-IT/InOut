@@ -252,6 +252,7 @@ function AttendancePage() {
   const startCamera = async () => {
     try {
       profileIncompleteWarnedRef.current = false;
+      setShowProfileIncompleteModal(false);
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user" },
       });
@@ -337,7 +338,7 @@ function AttendancePage() {
       streamRef.current = null;
     }
     setIsCapturing(false);
-    setShowProfileIncompleteModal(false);
+    // Do not clear profile-incomplete warning here — check-in success must still show it.
   };
 
   const maybeWarnProfileIncompleteAfterCapture = async (capturedObjectUrl) => {
@@ -379,9 +380,10 @@ function AttendancePage() {
       return;
     }
 
-    if (isProfileIncompleteUser(userData)) {
+    const missing = getMissingProfileFieldsFromUser(userData);
+    if (isProfileIncompleteUser(userData) || missing.length > 0) {
       profileIncompleteWarnedRef.current = true;
-      setMissingProfileFields(getMissingProfileFieldsFromUser(userData));
+      setMissingProfileFields(missing);
       setShowProfileIncompleteModal(true);
     }
   };
@@ -451,10 +453,10 @@ function AttendancePage() {
       setLocation("");
       setDetectedOffice(null);
       setComment("");
-      // stopCamera clears the modal; re-open only if backend says incomplete
-      // and capture-time warning did not already show (avoid duplicate).
       stopCamera();
-      if (incompletePayload && !profileIncompleteWarnedRef.current) {
+      // Always show after successful check-in when backend says incomplete
+      // (Aadhaar / other required fields). Capture-time warn alone was easy to miss.
+      if (incompletePayload) {
         const apiMissing = Array.isArray(incompletePayload.missingFields)
           ? incompletePayload.missingFields
           : [];
