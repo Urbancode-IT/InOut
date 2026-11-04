@@ -268,11 +268,12 @@ export default function ProfileCard() {
     form.append('aadharCard', file);
     setUploadingAadhar(true);
     try {
+      // Do NOT set Content-Type manually — browser must add the multipart boundary.
       const res = await axios.post(API_ENDPOINTS.uploadAadhar, form, {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
         },
+        timeout: 60000,
       });
       const updatedCard = res.data?.aadharCard;
       setProfile((prev) => ({ ...prev, aadharCard: updatedCard }));
@@ -284,7 +285,11 @@ export default function ProfileCard() {
         err.response?.data?.message ||
         err.response?.data?.msg ||
         err.response?.data?.error ||
-        'Failed to upload Aadhaar Card';
+        (err.code === 'ECONNABORTED'
+          ? 'Upload timed out. Try a smaller JPG/PNG or PDF (max 5 MB).'
+          : err.message === 'Network Error'
+            ? 'Network error while uploading. Check connection and try again.'
+            : 'Failed to upload Aadhaar Card');
       toast.error(errMsg);
     } finally {
       setUploadingAadhar(false);

@@ -69,18 +69,26 @@ const EditUser = ({ userId, onClose, onUpdated, pageMode = false }) => {
       const fd = new FormData();
       fd.append('aadharCard', file);
       if (userId) fd.append('userId', userId);
+      // Do NOT set Content-Type manually — browser must add the multipart boundary.
       const res = await axios.post(API_ENDPOINTS.uploadAadhar, fd, {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
         },
+        timeout: 60000,
       });
       const updatedCard = res.data?.aadharCard;
       setForm((prev) => ({ ...prev, aadharCard: updatedCard }));
       toast.success('Aadhaar Card uploaded successfully');
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.message || 'Failed to upload Aadhaar Card');
+      const errMsg =
+        err.response?.data?.message ||
+        (err.code === 'ECONNABORTED'
+          ? 'Upload timed out. Try a smaller JPG/PNG or PDF (max 5 MB).'
+          : err.message === 'Network Error'
+            ? 'Network error while uploading. Check connection and try again.'
+            : 'Failed to upload Aadhaar Card');
+      toast.error(errMsg);
     } finally {
       setUploadingAadhar(false);
       e.target.value = '';
