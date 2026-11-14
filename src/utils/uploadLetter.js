@@ -15,19 +15,45 @@ export async function uploadLetterBytes(pdfBytes, filename, candidateIdOrMeta, m
       ? candidateIdOrMeta
       : { candidateId: candidateIdOrMeta, ...(maybeMeta || {}) };
 
-  const file = new File([pdfBytes], filename, { type: 'application/pdf' });
+  // Exact byte copy — pdf-lib Uint8Array views can share a large buffer
+  const src =
+    pdfBytes instanceof Uint8Array
+      ? pdfBytes
+      : new Uint8Array(pdfBytes || []);
+  if (!src.length) {
+    throw new Error('PDF is empty — generate preview again before download');
+  }
+  const copy = new Uint8Array(src.byteLength);
+  copy.set(src);
+
+  const safeName = /\.pdf$/i.test(filename || '')
+    ? filename
+    : `${filename || 'letter'}.pdf`;
+
+  // File (not bare Blob) keeps MIME as application/pdf for multer fileFilter
+  const file =
+    typeof File !== 'undefined'
+      ? new File([copy], safeName, { type: 'application/pdf' })
+      : new Blob([copy], { type: 'application/pdf' });
+
   const fd = new FormData();
-  fd.append('letter', file);
-  if (meta.candidateId) fd.append('candidateId', meta.candidateId);
+  if (file instanceof File) {
+    fd.append('letter', file);
+  } else {
+    fd.append('letter', file, safeName);
+  }
+  if (meta.candidateId) fd.append('candidateId', String(meta.candidateId));
   if (meta.candidateName) fd.append('candidateName', meta.candidateName);
   if (meta.letterName) fd.append('letterName', meta.letterName);
   if (meta.letterType) fd.append('letterType', meta.letterType);
 
+  // Never set Content-Type manually — missing boundary breaks multer ("No file uploaded")
   const res = await axios.post(API_ENDPOINTS.uploadLetter, fd, {
     headers: {
       Authorization: `Bearer ${token}`,
-      'Content-Type': 'multipart/form-data',
     },
+    maxBodyLength: Infinity,
+    maxContentLength: Infinity,
   });
   return res.data;
 }

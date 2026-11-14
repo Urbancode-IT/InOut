@@ -33,6 +33,7 @@ import PayslipList from './pages/admin/PayslipList';
 // Layout
 import Layout from './components/admin-dashboard/layout/Layout';
 import ProfileCard from './pages/employee/ProfileCard';
+import EmployeeSettings from './pages/employee/EmployeeSettings';
 import ComingSoon from './pages/admin/ComingSoon';
 import OfferLetters from './pages/admin/OfferLetters';
 import ExperienceLetter from './pages/admin/ExperienceLetter';
@@ -46,6 +47,7 @@ import AdminProtectedRoute from './components/AdminProtectedRoute';
 import ProtectedRoute from './components/ProtectedRoute';
 import PendingUsers from './pages/admin/PendingUsers';
 import AdminProfile from './pages/admin/AdminProfile';
+import AdminSettings from './pages/admin/AdminSettings';
 import AcceptOffer from './pages/AcceptOffer';
 
 function App() {
@@ -86,6 +88,7 @@ function App() {
         <Route path="/apply-leave" element={<ProtectedRoute><Leave /></ProtectedRoute>} />
         <Route path="/task-manager" element={<TaskManagerPage />} />
         <Route path="/profile" element={<ProtectedRoute><ProfileCard /></ProtectedRoute>} />
+        <Route path="/employee-settings" element={<ProtectedRoute><EmployeeSettings /></ProtectedRoute>} />
 
         {/* Protected Admin Layout Wrapper */}
         <Route element={
@@ -115,6 +118,7 @@ function App() {
           <Route path="/payslip" element={<PayslipGenerator />} />
           <Route path="/leave-requests" element={<LeaveRequestsAdmin />} />
           <Route path="/admin-profile" element={<AdminProfile />} />
+          <Route path="/settings" element={<AdminSettings />} />
           <Route path="/coming-soon/*" element={<ComingSoon/>}/>
           {/* Add other admin routes here */}
           <Route path="/edit-user" element={<EditUser />} />

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../../utils/api';
 import {
@@ -23,8 +24,17 @@ import letterheadUrl from '../../assets/letterhead.pdf';
 import { shrinkLetterheadPhoneIconOnAllPages } from '../../utils/letterheadFooter';
 import { sanitizeTextForStandardFonts } from '../../utils/pdfTextSanitizer';
 import { sendDocumentEmailApi } from '../../utils/sendEmail';
+import {
+  applyMappedFieldsToForm,
+  mapEmployeeToLetterFields,
+} from '../../utils/mapEmployeeToLetterFields';
 
-const ExperienceLetter = () => {
+const ExperienceLetter = ({
+  embedded = false,
+  forcedTemplate = null,
+  externalCandidateId = null,
+} = {}) => {
+  const [searchParams] = useSearchParams();
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState('');
@@ -57,12 +67,51 @@ const ExperienceLetter = () => {
   }, []);
 
   useEffect(() => {
-    if (!selected) return;
-    const cand = candidates.find(c => c._id === selected);
-    if (cand) {
-      setForm({ candidateName: cand.name || '', designation: cand.position || '', company: cand.company || '', joiningDate: cand.dateOfJoining ? cand.dateOfJoining.slice(0,10) : '', relievingDate: '', email: cand.email || '' });
+    if (!embedded) return;
+    setSelected(externalCandidateId || '');
+  }, [externalCandidateId, embedded]);
+
+  useEffect(() => {
+    if (embedded) return;
+    const userId = searchParams.get('userId');
+    const candidateName = searchParams.get('candidateName');
+    const email = searchParams.get('email');
+    if (userId) setSelected(userId);
+    if (candidateName || email) {
+      setForm((prev) => ({
+        ...prev,
+        ...(candidateName ? { candidateName } : {}),
+        ...(email ? { email } : {}),
+      }));
     }
+  }, [searchParams, embedded]);
+
+  useEffect(() => {
+    if (!selected) return;
+    let cancelled = false;
+    (async () => {
+      let cand = candidates.find((c) => c._id === selected) || null;
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.get(API_ENDPOINTS.getUserById(selected), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const full = res.data?.user || res.data;
+        if (full && typeof full === 'object') cand = full;
+      } catch {
+        /* list item fallback */
+      }
+      if (cancelled || !cand) return;
+      const mapped = mapEmployeeToLetterFields(cand);
+      setForm((prev) => applyMappedFieldsToForm(prev, mapped));
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [selected, candidates]);
+
+  // forcedTemplate unused for experience — accepted for hub API consistency
+  void forcedTemplate;
 
   const handleChange = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
 
@@ -261,7 +310,16 @@ const ExperienceLetter = () => {
       try {
         if (pdfBytesData) {
           const { uploadLetterBytes } = await import('../../utils/uploadLetter');
-          await uploadLetterBytes(pdfBytesData, `${form.candidateName || 'experience-letter'}.pdf`, selected || undefined);
+          await uploadLetterBytes(
+            pdfBytesData,
+            `${titleText || 'Experience Letter'}.pdf`,
+            {
+              candidateId: selected || undefined,
+              candidateName: form.candidateName || '',
+              letterName: titleText || 'Experience Letter',
+              letterType: 'experience',
+            }
+          );
           toast.success('Saved: Letter uploaded to cloud');
         }
       } catch (err) {
@@ -275,18 +333,22 @@ const ExperienceLetter = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h5" sx={{ mb: 2 }}>Experience Letter</Typography>
+    <Container maxWidth="lg" sx={{ py: embedded ? 0 : 4 }} disableGutters={embedded}>
+      {!embedded && (
+        <Typography variant="h5" sx={{ mb: 2 }}>Experience Letter</Typography>
+      )}
       {loading ? <CircularProgress /> : (
-        <Box sx={{ display: 'flex', gap: 4 }}>
+        <Box sx={{ display: 'flex', gap: 4, flexDirection: { xs: 'column', md: 'row' } }}>
           <Box sx={{ flex: 1 }}>
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel id="candidate-label">Candidate</InputLabel>
-              <Select labelId="candidate-label" value={selected} label="Candidate" onChange={(e) => setSelected(e.target.value)}>
-                <MenuItem value="">-- Select --</MenuItem>
-                {candidates.map(c => <MenuItem key={c._id} value={c._id}>{c.name} — {c.position}</MenuItem>)}
-              </Select>
-            </FormControl>
+            {!embedded && (
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel id="candidate-label">Candidate</InputLabel>
+                <Select labelId="candidate-label" value={selected} label="Candidate" onChange={(e) => setSelected(e.target.value)}>
+                  <MenuItem value="">-- Select --</MenuItem>
+                  {candidates.map(c => <MenuItem key={c._id} value={c._id}>{c.name} — {c.position}</MenuItem>)}
+                </Select>
+              </FormControl>
+            )}
             <TextField label="Name" fullWidth sx={{ mb: 2 }} value={form.candidateName} onChange={(e) => handleChange('candidateName', e.target.value)} />
             <TextField label="Recipient Email ID" type="email" fullWidth sx={{ mb: 2 }} value={form.email} onChange={(e) => handleChange('email', e.target.value)} placeholder="Enter candidate email address" />
             <TextField label="Designation" fullWidth sx={{ mb: 2 }} value={form.designation} onChange={(e) => handleChange('designation', e.target.value)} />

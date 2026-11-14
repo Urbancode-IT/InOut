@@ -742,6 +742,10 @@ export default function RegisterMultiStep() {
               onAddWorkExperience={addWorkExperience}
               onRemoveWorkExperience={removeWorkExperience}
               calculatedTotal={calculatedTotal}
+              onTagListChange={(name, next) => {
+                setFormData((prev) => ({ ...prev, [name]: next }));
+                if (String(next || '').trim()) clearFieldError(name);
+              }}
             />
           )}
 
@@ -969,6 +973,7 @@ function JobDetails({
   onAddWorkExperience,
   onRemoveWorkExperience,
   calculatedTotal,
+  onTagListChange,
 }) {
   return (
     <div className="space-y-6">
@@ -1001,8 +1006,24 @@ function JobDetails({
         <Input label="Department" name="department" value={formData.department} onChange={handleChange} required error={fieldErrors.department} />
         <Input label="Qualification" name="qualification" value={formData.qualification} onChange={handleChange} required error={fieldErrors.qualification} />
         <Input label="Date of Joining" name="dateOfJoining" value={formData.dateOfJoining} onChange={handleChange} type="date" required error={fieldErrors.dateOfJoining} />
-        <Input label="Roles & Responsibilities (comma separated)" name="rolesAndResponsibility" value={formData.rolesAndResponsibility} onChange={handleChange} required error={fieldErrors.rolesAndResponsibility} />
-        <Input label="Skills (comma separated)" name="skills" value={formData.skills} onChange={handleChange} required error={fieldErrors.skills} />
+        <TagListField
+          label="Roles & Responsibilities"
+          name="rolesAndResponsibility"
+          value={formData.rolesAndResponsibility}
+          onChangeList={(next) => onTagListChange('rolesAndResponsibility', next)}
+          required
+          error={fieldErrors.rolesAndResponsibility}
+          placeholder="Type one role and click Add"
+        />
+        <TagListField
+          label="Skills"
+          name="skills"
+          value={formData.skills}
+          onChangeList={(next) => onTagListChange('skills', next)}
+          required
+          error={fieldErrors.skills}
+          placeholder="Type one skill and click Add"
+        />
       </div>
 
       <div className="rounded-xl border border-[#e0ecff] bg-white p-4">
@@ -1657,6 +1678,112 @@ function Input({
         placeholder={placeholder}
         className={inputClass(!!error)}
       />
+      <FieldError message={error} />
+    </div>
+  );
+}
+
+function parseCommaList(value) {
+  return String(value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+/** Add many skills / roles one-by-one as tags (stored as comma-separated string). */
+function TagListField({
+  label,
+  name,
+  value,
+  onChangeList,
+  required = false,
+  error,
+  placeholder = 'Type and click Add',
+}) {
+  const [draft, setDraft] = useState('');
+  const items = parseCommaList(value);
+
+  const commitItems = (parts) => {
+    const cleaned = [];
+    parts.forEach((part) => {
+      const t = String(part || '').trim();
+      if (!t) return;
+      if (cleaned.some((x) => x.toLowerCase() === t.toLowerCase())) return;
+      cleaned.push(t);
+    });
+    onChangeList(cleaned.join(', '));
+  };
+
+  const addDraft = () => {
+    const chunks = draft
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (!chunks.length) return;
+    commitItems([...items, ...chunks]);
+    setDraft('');
+  };
+
+  const removeAt = (index) => {
+    commitItems(items.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="col-span-1 md:col-span-2">
+      <FieldLabel label={label} required={required} />
+      <div
+        className={`rounded-xl border bg-white p-3 ${
+          error ? 'border-red-400' : 'border-[#e0ecff]'
+        }`}
+      >
+        {items.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {items.map((item, index) => (
+              <span
+                key={`${name}-${item}-${index}`}
+                className="inline-flex items-center gap-1.5 rounded-full bg-[#eef5ff] text-[#0b2d67] px-3 py-1 text-sm font-medium"
+              >
+                {item}
+                <button
+                  type="button"
+                  onClick={() => removeAt(index)}
+                  className="text-[#64748b] hover:text-red-600 leading-none"
+                  aria-label={`Remove ${item}`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            type="text"
+            name={name}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                addDraft();
+              }
+            }}
+            placeholder={placeholder}
+            className={inputClass(false)}
+          />
+          <button
+            type="button"
+            onClick={addDraft}
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#0b2d67] text-white px-4 py-2 text-sm font-semibold hover:bg-[#071d44] whitespace-nowrap"
+          >
+            <FiPlus size={16} />
+            Add
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-gray-500">
+          Add one by one with Add / Enter. You can also paste several separated by commas.
+        </p>
+      </div>
       <FieldError message={error} />
     </div>
   );

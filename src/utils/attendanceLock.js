@@ -6,7 +6,7 @@ export const ATTENDANCE_LOCKED_MESSAGE =
   'Your account is locked because your profile is incomplete. Please complete the missing fields or contact the administrator.';
 
 export const INOUT_BLOCKED_MESSAGE =
-  'Your In-Out is locked because you did not check in, check out, or submit a leave request. Only an admin can unlock it.';
+  'Your In-Out is locked because you did not check in, check out, or submit a leave request. Submit leave for that day to unlock, or ask an admin.';
 
 export const PROFILE_INCOMPLETE_ENTRY_MESSAGE =
   'Your profile is incomplete. Please complete your profile before checking in.';

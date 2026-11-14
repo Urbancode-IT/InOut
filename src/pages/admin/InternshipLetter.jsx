@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import axios from 'axios';
 import {
   Box,
   Container,
@@ -12,8 +14,18 @@ import letterheadUrl from '../../assets/letterhead.pdf';
 import { shrinkLetterheadPhoneIconOnAllPages } from '../../utils/letterheadFooter';
 import { sanitizeTextForStandardFonts } from '../../utils/pdfTextSanitizer';
 import { sendDocumentEmailApi } from '../../utils/sendEmail';
+import { API_ENDPOINTS } from '../../utils/api';
+import {
+  applyMappedFieldsToForm,
+  mapEmployeeToLetterFields,
+} from '../../utils/mapEmployeeToLetterFields';
 
-const InternshipLetter = () => {
+const InternshipLetter = ({
+  embedded = false,
+  forcedTemplate = null,
+  externalCandidateId = null,
+} = {}) => {
+  const [searchParams] = useSearchParams();
   // simple form (no candidate lookup) to support students
   const [form, setForm] = useState({
     salutation: 'Mr.',
@@ -32,6 +44,57 @@ const InternshipLetter = () => {
     directorTitle: 'Founder'
   });
   const [letterDate, setLetterDate] = useState(() => new Date().toISOString().slice(0, 10));
+  void forcedTemplate;
+
+  useEffect(() => {
+    const candidateName = searchParams.get('candidateName');
+    const email = searchParams.get('email');
+    if (candidateName || email) {
+      setForm((prev) => ({
+        ...prev,
+        ...(candidateName ? { studentName: candidateName } : {}),
+        ...(email ? { email } : {}),
+      }));
+    }
+  }, [searchParams]);
+
+  // Prefill from hub employee select (optional — students may not be users)
+  useEffect(() => {
+    if (!externalCandidateId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = localStorage.getItem('token');
+        let cand = null;
+        try {
+          const one = await axios.get(API_ENDPOINTS.getUserById(externalCandidateId), {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          cand = one.data?.user || one.data;
+        } catch {
+          const res = await axios.get(API_ENDPOINTS.getUsers, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          cand = (res.data || []).find(
+            (u) => String(u._id) === String(externalCandidateId)
+          );
+        }
+        if (cancelled || !cand) return;
+        const mapped = mapEmployeeToLetterFields(cand);
+        setForm((prev) =>
+          applyMappedFieldsToForm(prev, {
+            ...mapped,
+            designation: mapped.designation || prev.designation || 'Intern',
+          })
+        );
+      } catch (err) {
+        console.error('Failed to prefill internship certificate from employee', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [externalCandidateId]);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
@@ -379,10 +442,17 @@ Sincerely,`;
     const uploadAndDownload = async () => {
       try {
         if (pdfBytesData) {
-          const token = localStorage.getItem('token');
-          const file = new File([pdfBytesData], `${form.studentName || 'internship-certificate'}.pdf`, { type: 'application/pdf' });
           const { uploadLetterBytes } = await import('../../utils/uploadLetter');
-          await uploadLetterBytes(pdfBytesData, `${form.studentName || 'internship-certificate'}.pdf`);
+          await uploadLetterBytes(
+            pdfBytesData,
+            `${form.subject || 'Internship Certificate'}.pdf`,
+            {
+              candidateId: externalCandidateId || undefined,
+              candidateName: form.studentName || '',
+              letterName: form.subject || 'Internship Certificate',
+              letterType: 'internship',
+            }
+          );
           toast.success('Saved: Letter uploaded to cloud');
         }
       } catch (err) {
@@ -395,9 +465,11 @@ Sincerely,`;
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h5" sx={{ mb: 2 }}>Internship Certificate</Typography>
-      <Box sx={{ display: 'flex', gap: 4 }}>
+    <Container maxWidth="lg" sx={{ py: embedded ? 0 : 4 }} disableGutters={embedded}>
+      {!embedded && (
+        <Typography variant="h5" sx={{ mb: 2 }}>Internship Certificate</Typography>
+      )}
+      <Box sx={{ display: 'flex', gap: 4, flexDirection: { xs: 'column', md: 'row' } }}>
         <Box sx={{ flex: 1 }}>
           <TextField label="Salutation (Mr./Ms./Dr.)" fullWidth sx={{ mb: 2 }} value={form.salutation} onChange={(e) => handleChange('salutation', e.target.value)} />
           <TextField label="Student Name" fullWidth sx={{ mb: 2 }} value={form.studentName} onChange={(e) => handleChange('studentName', e.target.value)} />

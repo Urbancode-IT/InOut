@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { FiUpload, FiDownload, FiFile } from 'react-icons/fi';
@@ -6,6 +7,7 @@ import { API_ENDPOINTS } from '../../utils/api';
 import '../../components/admin-dashboard/allusers/edit-form.css';
 
 const UploadDocuments = () => {
+  const [searchParams] = useSearchParams();
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [selected, setSelected] = useState('');
@@ -32,6 +34,11 @@ const UploadDocuments = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    const userId = searchParams.get('userId');
+    if (userId) setSelected(userId);
+  }, [searchParams]);
+
   const selectedUser = users.find((u) => u._id === selected);
   const documents = (selectedUser?.letterCopies || []).slice().reverse();
 
@@ -51,6 +58,9 @@ const UploadDocuments = () => {
       const fd = new FormData();
       fd.append('letter', file);
       fd.append('candidateId', selected);
+      fd.append('candidateName', selectedUser?.name || '');
+      fd.append('letterName', file.name?.replace(/\.pdf$/i, '') || 'Uploaded Document');
+      fd.append('letterType', 'uploaded');
       await axios.post(API_ENDPOINTS.uploadLetter, fd, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
       });
@@ -66,13 +76,14 @@ const UploadDocuments = () => {
     }
   };
 
-  const handleDownload = (doc) => {
-    const a = document.createElement('a');
-    a.href = doc.url;
-    a.download = doc.filename || '';
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    a.click();
+  const handleDownload = async (doc) => {
+    try {
+      const { downloadAdminLetter } = await import('../../utils/uploadLetter');
+      await downloadAdminLetter(doc.url, doc.filename || 'letter.pdf');
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || 'Download failed');
+    }
   };
 
   return (

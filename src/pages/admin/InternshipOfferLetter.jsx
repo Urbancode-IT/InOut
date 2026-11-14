@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Box, Container, Typography, TextField, Button, FormControl, InputLabel, Select, MenuItem, CircularProgress, List, ListItem, ListItemText, ListItemSecondaryAction } from '@mui/material';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { toast } from 'react-toastify';
@@ -8,11 +9,20 @@ import { sanitizeTextForStandardFonts } from '../../utils/pdfTextSanitizer';
 import { sendDocumentEmailApi } from '../../utils/sendEmail';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../../utils/api';
+import {
+  applyMappedFieldsToForm,
+  mapEmployeeToLetterFields,
+} from '../../utils/mapEmployeeToLetterFields';
 
 const SIGNATORY_NAME = 'Sivagaminathan';
 const SIGNATORY_TITLE = 'Founder';
 
-const InternshipOfferLetter = () => {
+const InternshipOfferLetter = ({
+  embedded = false,
+  forcedTemplate = null,
+  externalCandidateId = null,
+} = {}) => {
+  const [searchParams] = useSearchParams();
   const [form, setForm] = useState({
     candidateName: '',
     email: '',
@@ -29,6 +39,7 @@ const InternshipOfferLetter = () => {
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState('');
+  void forcedTemplate;
 
   const [titleText, setTitleText] = useState('INTERNSHIP OFFER LETTER');
   const [letterDate, setLetterDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -328,27 +339,58 @@ Authorized Signatory`;
   }, []);
 
   useEffect(() => {
-    if (!selected) return;
-    const cand = candidates.find(c => c._id === selected);
-    if (cand) {
-      const next = {
-        candidateName: cand.name || '',
-        email: cand.email || '',
-        addressLine1: cand.addressLine1 || cand.address?.line1 || cand.address?.addressLine1 || cand.location || '',
-        location: cand.city || cand.location || '',
-        country: cand.country || 'India',
-        collegeName: cand.collegeName || cand.college || '',
-        designation: cand.position || 'Full Stack Web Development',
-        company: cand.company || '',
-        duration: cand.duration || '',
-        joiningDate: cand.dateOfJoining ? cand.dateOfJoining.slice(0, 10) : ''
-      };
-      setForm(next);
-      // populate the editable body with template filled for this candidate
-      const autoBody = defaultBody(next);
-      setBody(autoBody);
-      lastAutoBodyRef.current = autoBody;
+    if (!embedded) return;
+    setSelected(externalCandidateId || '');
+  }, [externalCandidateId, embedded]);
+
+  useEffect(() => {
+    if (embedded) return;
+    const userId = searchParams.get('userId');
+    const candidateName = searchParams.get('candidateName');
+    const email = searchParams.get('email');
+    if (userId) setSelected(userId);
+    if (candidateName || email) {
+      setForm((prev) => ({
+        ...prev,
+        ...(candidateName ? { candidateName } : {}),
+        ...(email ? { email } : {}),
+      }));
     }
+  }, [searchParams, embedded]);
+
+  useEffect(() => {
+    if (!selected) return;
+    let cancelled = false;
+    (async () => {
+      let cand = candidates.find((c) => c._id === selected) || null;
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.get(API_ENDPOINTS.getUserById(selected), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const full = res.data?.user || res.data;
+        if (full && typeof full === 'object') cand = full;
+      } catch {
+        /* list item fallback */
+      }
+      if (cancelled || !cand) return;
+      const mapped = mapEmployeeToLetterFields(cand);
+      setForm((prev) => {
+        const next = applyMappedFieldsToForm(prev, {
+          ...mapped,
+          // Keep internship domain default when profile has no position
+          designation: mapped.designation || prev.designation || 'Full Stack Web Development',
+          country: mapped.country || 'India',
+        });
+        const autoBody = defaultBody(next);
+        setBody(autoBody);
+        lastAutoBodyRef.current = autoBody;
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [selected, candidates]);
 
   const [sendingMail, setSendingMail] = useState(false);
@@ -402,7 +444,16 @@ Authorized Signatory`;
       try {
         if (pdfBytesData) {
           const { uploadLetterBytes } = await import('../../utils/uploadLetter');
-          await uploadLetterBytes(pdfBytesData, `${form.candidateName || 'internship-offer'}.pdf`, selected || undefined);
+          await uploadLetterBytes(
+            pdfBytesData,
+            `${titleText || 'Internship Offer Letter'}.pdf`,
+            {
+              candidateId: selected || undefined,
+              candidateName: form.candidateName || '',
+              letterName: titleText || 'Internship Offer Letter',
+              letterType: 'internship-offer',
+            }
+          );
           toast.success('Saved: Letter uploaded to cloud');
         }
       } catch (err) {
@@ -416,28 +467,32 @@ Authorized Signatory`;
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h5" sx={{ mb: 2 }}>Internship Offer Letter</Typography>
-      <Box sx={{ display: 'flex', gap: 4 }}>
+    <Container maxWidth="lg" sx={{ py: embedded ? 0 : 4 }} disableGutters={embedded}>
+      {!embedded && (
+        <Typography variant="h5" sx={{ mb: 2 }}>Internship Offer Letter</Typography>
+      )}
+      <Box sx={{ display: 'flex', gap: 4, flexDirection: { xs: 'column', md: 'row' } }}>
         <Box sx={{ flex: 1 }}>
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel id="candidate-label">Candidate</InputLabel>
-            <Select
-              labelId="candidate-label"
-              value={selected}
-              label="Candidate"
-              onChange={(e) => setSelected(e.target.value)}
-            >
-              <MenuItem value="">-- Select --</MenuItem>
-              {loading ? (
-                <MenuItem disabled><em>Loading...</em></MenuItem>
-              ) : (
-                candidates.map(c => (
-                  <MenuItem key={c._id} value={c._id}>{c.name} ΓÇö {c.position || c.degree || ''}</MenuItem>
-                ))
-              )}
-            </Select>
-          </FormControl>
+          {!embedded && (
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel id="candidate-label">Candidate</InputLabel>
+              <Select
+                labelId="candidate-label"
+                value={selected}
+                label="Candidate"
+                onChange={(e) => setSelected(e.target.value)}
+              >
+                <MenuItem value="">-- Select --</MenuItem>
+                {loading ? (
+                  <MenuItem disabled><em>Loading...</em></MenuItem>
+                ) : (
+                  candidates.map(c => (
+                    <MenuItem key={c._id} value={c._id}>{c.name} — {c.position || c.degree || ''}</MenuItem>
+                  ))
+                )}
+              </Select>
+            </FormControl>
+          )}
           <TextField label="Name" fullWidth sx={{ mb: 2 }} value={form.candidateName} onChange={(e) => handleChange('candidateName', e.target.value)} />
           <TextField label="Recipient Email ID" type="email" fullWidth sx={{ mb: 2 }} value={form.email} onChange={(e) => handleChange('email', e.target.value)} placeholder="Enter candidate email address" />
           <TextField label="Address" fullWidth sx={{ mb: 2 }} value={form.addressLine1} onChange={(e) => handleChange('addressLine1', e.target.value)} />

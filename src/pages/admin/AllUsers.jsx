@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import { confirmToast } from '../../utils/interactiveToast';
 import { FiLink, FiMoreVertical, FiUserPlus } from 'react-icons/fi';
 import { API_ENDPOINTS } from '../../utils/api';
+import { copyRegisterLink } from '../../utils/copyRegisterLink';
 // UserCard is used on the dedicated user detail page now
 import { useNavigate, useLocation } from 'react-router-dom';
 import Loader from '../../components/admin-dashboard/common/Loader';
@@ -204,29 +205,6 @@ const AllUsers = () => {
     }
   };
 
-  const handleCopyRegisterLink = async () => {
-    const registrationUrl = `${window.location.origin}/register`;
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(registrationUrl);
-      } else {
-        const textarea = document.createElement('textarea');
-        textarea.value = registrationUrl;
-        textarea.setAttribute('readonly', '');
-        textarea.style.position = 'fixed';
-        textarea.style.left = '-9999px';
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-      }
-      toast.success('Registration link copied successfully!');
-    } catch (err) {
-      console.error('Failed to copy registration link:', err);
-      toast.error('Could not copy registration link.');
-    }
-  };
-
   const isPastEmployee = (user) => !user.isActive || !!user.dateOfRelieving;
 
   const matchesPastSearch = (user) => {
@@ -259,9 +237,8 @@ const AllUsers = () => {
   };
 
   // derive unique options for filters
-  const departments = Array.from(new Set(users.map(u => u.department).filter(Boolean))).sort();
-  const positions = Array.from(new Set(users.map(u => u.position).filter(Boolean))).sort();
-  const companies = Array.from(new Set(users.map(u => u.company).filter(Boolean))).sort();
+  const departments = Array.from(new Set(users.map((u) => u.department).filter(Boolean))).sort();
+  const companies = Array.from(new Set(users.map((u) => u.company).filter(Boolean))).sort();
 
   const matchesSearch = (user) => {
     if (!searchTerm) return true;
@@ -307,7 +284,7 @@ const AllUsers = () => {
           <button
             type="button"
             className="uc-btn uc-btn-outline"
-            onClick={handleCopyRegisterLink}
+            onClick={copyRegisterLink}
             title="Register Link"
             aria-label="Register Link"
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}

@@ -1,0 +1,182 @@
+.emp-settings-page {
+  --es-teal: #159c8e;
+  --es-teal-dark: #0f7a6e;
+  --es-bg: #f9fafb;
+  --es-card: #ffffff;
+  --es-text: #1f2937;
+  --es-muted: #6b7280;
+  --es-border: #e5e7eb;
+  min-height: 100vh;
+  margin: 0;
+  padding: 1rem 1rem 6.5rem;
+  box-sizing: border-box;
+  background: var(--es-bg);
+  color: var(--es-text);
+  font-family: Montserrat, sans-serif;
+  max-width: 36rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.emp-settings-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--es-border);
+  border-radius: 0.55rem;
+  background: #fff;
+  color: #374151;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.emp-settings-back:hover {
+  background: #f3f4f6;
+}
+
+.emp-settings-title {
+  margin: 0 0 0.3rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.emp-settings-subtitle {
+  margin: 0 0 1.25rem;
+  font-size: 0.9rem;
+  color: var(--es-muted);
+  line-height: 1.45;
+}
+
+.emp-settings-card {
+  background: var(--es-card);
+  border: 1px solid var(--es-border);
+  border-radius: 0.85rem;
+  padding: 1.15rem 1.2rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  margin-bottom: 0.85rem;
+}
+
+.emp-settings-card-title {
+  margin: 0 0 0.3rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.emp-settings-card-desc {
+  margin: 0 0 0.9rem;
+  font-size: 0.84rem;
+  color: var(--es-muted);
+  line-height: 1.45;
+}
+
+.emp-settings-link-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.emp-settings-link-input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  height: 2.55rem;
+  padding: 0 0.8rem;
+  border: 1px solid var(--es-border);
+  border-radius: 0.65rem;
+  background: #f8fafc;
+  color: #334155;
+  font: inherit;
+  font-size: 0.82rem;
+}
+
+.emp-settings-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 2.55rem;
+  padding: 0 0.95rem;
+  border: none;
+  border-radius: 0.65rem;
+  background: var(--es-teal);
+  color: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.emp-settings-copy-btn:hover {
+  background: var(--es-teal-dark);
+}
+
+.emp-settings-actions {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.emp-settings-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--es-border);
+  border-radius: 0.75rem;
+  background: #fff;
+  color: var(--es-text);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.emp-settings-action-btn:hover {
+  background: #f8fafc;
+}
+
+.emp-settings-action-btn.is-danger {
+  color: #dc2626;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.emp-settings-action-icon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #e6f5f3;
+  color: var(--es-teal-dark);
+  flex-shrink: 0;
+}
+
+.emp-settings-action-btn.is-danger .emp-settings-action-icon {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+@media (max-width: 560px) {
+  .emp-settings-link-row {
+    grid-template-columns: 1fr;
+  }
+
+  .emp-settings-copy-btn {
+    width: 100%;
+  }
+}

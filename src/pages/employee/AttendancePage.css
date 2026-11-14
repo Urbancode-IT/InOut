@@ -318,20 +318,52 @@
   color: #9ca3af;
 }
 
-.att-payslips-download {
+.att-payslips-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  justify-content: flex-end;
+}
+
+.att-payslips-download,
+.att-payslips-action {
   border: none;
   border-radius: 999px;
-  background: #159c8e;
-  color: #fff;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  padding: 0.4rem 0.9rem;
+  padding: 0.35rem 0.75rem;
   cursor: pointer;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.att-payslips-download {
+  background: #159c8e;
+  color: #fff;
 }
 
 .att-payslips-download:hover {
   background: #0f7a6e;
+}
+
+.att-payslips-action.ghost {
+  background: #eef2f7;
+  color: #334155;
+}
+
+.att-payslips-action.ghost:hover {
+  background: #e2e8f0;
+}
+
+.att-payslips-action.danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.att-payslips-action.danger:hover {
+  background: #fecaca;
 }
 
 .att-quick-label {

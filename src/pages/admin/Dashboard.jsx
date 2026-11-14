@@ -4,7 +4,7 @@ import { API_ENDPOINTS } from '../../utils/api';
 import RecentAttendanceTable from '../../components/admin-dashboard/dashboard/RecentAttendanceTable';
 import DashboardCards from '../../components/admin-dashboard/dashboard/DashboardCards';
 import Loader from '../../components/admin-dashboard/common/Loader';
-import { FiSearch, FiCalendar, FiRefreshCw } from 'react-icons/fi';
+import { FiSearch, FiCalendar, FiRefreshCw, FiLink } from 'react-icons/fi';
 import AbsentUsersList from '../../components/admin-dashboard/dashboard/AbsentUsersList';
 import LockedUsersPanel from '../../components/admin-dashboard/dashboard/LockedUsersPanel';
 import ReportGenerator from '../../components/admin-dashboard/dashboard/ReportGenerator';
@@ -16,6 +16,7 @@ import {
   filterLogsByDate,
   normalizeLogs,
 } from '../../utils/dashboardLogs';
+import { copyRegisterLink } from '../../utils/copyRegisterLink';
 import '../../styles/dashboard-ui.css';
 
 const fetchDashboardLogs = async (dateFilter, headers, users = []) => {
@@ -194,6 +195,17 @@ const Dashboard = () => {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            className="dash-btn-primary"
+            onClick={copyRegisterLink}
+            title="Register Link"
+            aria-label="Register Link"
+            style={{ background: '#fff', color: '#0f766e', border: '1px solid #99f6e4' }}
+          >
+            <FiLink size={16} />
+            <span>Register Link</span>
+          </button>
           <LockedUsersPanel
             users={allUsers}
             onUnlocked={(userId) => {

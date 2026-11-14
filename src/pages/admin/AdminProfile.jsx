@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
-import { FiCamera, FiSave, FiArrowLeft, FiTrash2 } from 'react-icons/fi';
+import { FiCamera, FiSave, FiArrowLeft, FiTrash2, FiEye, FiEyeOff } from 'react-icons/fi';
 import { API_ENDPOINTS } from '../../utils/api';
 import '../../styles/admin-ui.css';
 import '../../components/admin-dashboard/allusers/user-profile.css';
@@ -36,6 +36,8 @@ const AdminProfile = () => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [previewSrc, setPreviewSrc] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -325,32 +327,54 @@ const AdminProfile = () => {
                   <p className="admin-profile-role-badge">Administrator</p>
                 </div>
 
-                <div className="admin-profile-field">
+                <div className="admin-profile-field admin-profile-field-span">
                   <label htmlFor="admin-profile-password">New Password</label>
-                  <input
-                    id="admin-profile-password"
-                    className="uc-input"
-                    type="password"
-                    name="password"
-                    value={form.password}
-                    onChange={handleChange}
-                    placeholder="Leave blank to keep current"
-                    autoComplete="new-password"
-                  />
+                  <div className="admin-profile-password-wrap">
+                    <input
+                      id="admin-profile-password"
+                      className="uc-input"
+                      type={showPassword ? 'text' : 'password'}
+                      name="password"
+                      value={form.password}
+                      onChange={handleChange}
+                      placeholder="Leave blank to keep current"
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      className="admin-profile-password-toggle"
+                      onClick={() => setShowPassword((v) => !v)}
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
+                    </button>
+                  </div>
                 </div>
 
-                <div className="admin-profile-field">
+                <div className="admin-profile-field admin-profile-field-span">
                   <label htmlFor="admin-profile-confirm-password">Confirm Password</label>
-                  <input
-                    id="admin-profile-confirm-password"
-                    className="uc-input"
-                    type="password"
-                    name="confirmPassword"
-                    value={form.confirmPassword}
-                    onChange={handleChange}
-                    placeholder="Confirm new password"
-                    autoComplete="new-password"
-                  />
+                  <div className="admin-profile-password-wrap">
+                    <input
+                      id="admin-profile-confirm-password"
+                      className="uc-input"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      name="confirmPassword"
+                      value={form.confirmPassword}
+                      onChange={handleChange}
+                      placeholder="Confirm new password"
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button"
+                      className="admin-profile-password-toggle"
+                      onClick={() => setShowConfirmPassword((v) => !v)}
+                      title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showConfirmPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
+                    </button>
+                  </div>
                 </div>
               </div>
 

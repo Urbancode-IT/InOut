@@ -3,9 +3,37 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { confirmToast } from '../../utils/interactiveToast';
 import { API_ENDPOINTS } from '../../utils/api';
-import { FiUserCheck, FiUserX, FiUserPlus, FiFileText, FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import { FiUserCheck, FiUserX, FiUserPlus, FiFileText, FiEye, FiEyeOff } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import Loader from '../../components/admin-dashboard/common/Loader';
+
+const detailGridStyle = {
+  display: 'grid',
+  gridTemplateColumns: 'minmax(120px, 38%) 1fr',
+  gap: '0.45rem 0.85rem',
+  alignItems: 'start',
+};
+
+const detailLabelStyle = {
+  margin: 0,
+  fontSize: '0.78rem',
+  fontWeight: 600,
+  color: '#64748b',
+};
+
+const detailValueStyle = {
+  margin: 0,
+  fontSize: '0.875rem',
+  color: '#0f172a',
+  wordBreak: 'break-word',
+};
+
+const DetailRow = ({ label, children }) => (
+  <>
+    <p style={detailLabelStyle}>{label}</p>
+    <p style={detailValueStyle}>{children}</p>
+  </>
+);
 
 const statusBadgeStyle = (status) => {
   const base = {
@@ -200,7 +228,33 @@ const PendingUsers = () => {
                     </span>
                   </div>
 
-                  <h3>{user.name || 'Unnamed'}</h3>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '0.5rem',
+                      marginBottom: '0.35rem',
+                    }}
+                  >
+                    <h3 style={{ margin: 0 }}>{user.name || 'Unnamed'}</h3>
+                    <button
+                      type="button"
+                      className="uc-btn uc-btn-icon-circle"
+                      onClick={() => setExpandedId(expanded ? null : user._id)}
+                      title={expanded ? 'Hide details' : 'View details'}
+                      aria-label={expanded ? 'Hide details' : 'View details'}
+                      aria-expanded={expanded}
+                      style={{
+                        flexShrink: 0,
+                        background: expanded ? '#0b2d67' : '#eef2ff',
+                        color: expanded ? '#fff' : '#0b2d67',
+                        border: '1px solid #c7d2fe',
+                      }}
+                    >
+                      {expanded ? <FiEyeOff size={16} /> : <FiEye size={16} />}
+                    </button>
+                  </div>
                   <p>
                     <strong>Email:</strong> {user.email || '—'}
                   </p>
@@ -223,88 +277,97 @@ const PendingUsers = () => {
                     <strong>Branch:</strong> {user.branch || user.department || '—'}
                   </p>
 
-                  <button
-                    type="button"
-                    className="uc-btn"
-                    style={{
-                      fontSize: '0.75rem',
-                      padding: '0.25rem 0.6rem',
-                      marginTop: '0.5rem',
-                    }}
-                    onClick={() => setExpandedId(expanded ? null : user._id)}
-                  >
-                    {expanded ? <FiChevronUp /> : <FiChevronDown />}{' '}
-                    {expanded ? 'Hide details' : 'View full details'}
-                  </button>
-
                   {expanded && (
                     <div
                       style={{
-                        marginTop: '0.75rem',
-                        padding: '0.75rem',
+                        marginTop: '0.85rem',
+                        padding: '0.9rem 1rem',
                         background: '#f8fafc',
-                        borderRadius: '8px',
-                        fontSize: '0.875rem',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '10px',
                       }}
                     >
-                      <p>
-                        <strong>Address:</strong> {user.address || '—'}
+                      <p
+                        style={{
+                          margin: '0 0 0.75rem',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          color: '#0b2d67',
+                          letterSpacing: '0.02em',
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        User details
                       </p>
-                      <p>
-                        <strong>Department:</strong> {user.department || '—'}
-                      </p>
-                      <p>
-                        <strong>Expected Joining:</strong>{' '}
-                        {user.dateOfJoining
-                          ? new Date(user.dateOfJoining).toLocaleDateString()
-                          : '—'}
-                      </p>
-                      <p>
-                        <strong>Qualification:</strong> {user.qualification || '—'}
-                      </p>
-                      <p>
-                        <strong>Salary (registered):</strong>{' '}
-                        {user.salary != null ? user.salary : '—'}
-                      </p>
-                      <p>
-                        <strong>Blood Group:</strong> {user.bloodGroup || '—'}
-                      </p>
-                      <p>
-                        <strong>Employment Type:</strong>{' '}
-                        {user.employmentType === 'Part-Time' ? 'Part-Time' : 'Full-Time'}
-                      </p>
+                      <div style={detailGridStyle}>
+                        <DetailRow label="Address">{user.address || '—'}</DetailRow>
+                        <DetailRow label="Department">{user.department || '—'}</DetailRow>
+                        <DetailRow label="Expected joining">
+                          {user.dateOfJoining
+                            ? new Date(user.dateOfJoining).toLocaleDateString()
+                            : '—'}
+                        </DetailRow>
+                        <DetailRow label="Qualification">{user.qualification || '—'}</DetailRow>
+                        <DetailRow label="Salary (registered)">
+                          {user.salary != null ? user.salary : '—'}
+                        </DetailRow>
+                        <DetailRow label="Blood group">{user.bloodGroup || '—'}</DetailRow>
+                        <DetailRow label="Employment type">
+                          {user.employmentType === 'Part-Time' ? 'Part-Time' : 'Full-Time'}
+                        </DetailRow>
+                        <DetailRow label="Experience type">
+                          {user.isFresher ? 'Fresher' : 'Experienced'}
+                        </DetailRow>
+                        <DetailRow label="Total experience">
+                          {user.totalYearsOfExperience != null
+                            ? `${user.totalYearsOfExperience} year(s)`
+                            : '—'}
+                        </DetailRow>
+                      </div>
+
                       {user.schedule ? (
-                        <div style={{ marginTop: '0.5rem' }}>
-                          <strong>Weekly Schedule:</strong>
-                          <div style={{ marginTop: '0.35rem' }}>
+                        <div style={{ marginTop: '0.85rem' }}>
+                          <p style={{ ...detailLabelStyle, marginBottom: '0.4rem' }}>
+                            Weekly schedule
+                          </p>
+                          <div
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+                              gap: '0.4rem',
+                            }}
+                          >
                             {Object.keys(user.schedule).map((day) => {
                               const daySch = user.schedule[day] || {};
                               return (
-                                <p key={day} style={{ margin: '0.15rem 0' }}>
-                                  {day}:{' '}
-                                  {daySch.isLeave
-                                    ? 'Day Off'
-                                    : `${daySch.start || '—'} – ${daySch.end || '—'}`}
-                                </p>
+                                <div
+                                  key={day}
+                                  style={{
+                                    padding: '0.4rem 0.5rem',
+                                    background: '#fff',
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: 6,
+                                    fontSize: '0.8rem',
+                                  }}
+                                >
+                                  <strong style={{ textTransform: 'capitalize' }}>{day}</strong>
+                                  <div style={{ color: '#334155', marginTop: 2 }}>
+                                    {daySch.isLeave
+                                      ? 'Day Off'
+                                      : `${daySch.start || '—'} – ${daySch.end || '—'}`}
+                                  </div>
+                                </div>
                               );
                             })}
                           </div>
                         </div>
                       ) : null}
-                      <hr style={{ margin: '0.6rem 0', borderColor: '#e5e7eb' }} />
-                      <p>
-                        <strong>Experience Type:</strong>{' '}
-                        {user.isFresher ? 'Fresher' : 'Experienced'}
-                      </p>
-                      <p>
-                        <strong>Total Years of Experience:</strong>{' '}
-                        {user.totalYearsOfExperience != null
-                          ? user.totalYearsOfExperience
-                          : '—'}
-                      </p>
+
                       {Array.isArray(user.workExperience) && user.workExperience.length > 0 ? (
-                        <div style={{ marginTop: '0.5rem' }}>
-                          <strong>Work History:</strong>
+                        <div style={{ marginTop: '0.85rem' }}>
+                          <p style={{ ...detailLabelStyle, marginBottom: '0.4rem' }}>
+                            Work history
+                          </p>
                           {user.workExperience.map((entry, idx) => {
                             const formatDate = (iso, day, month, year) => {
                               if (iso) {
@@ -355,64 +418,63 @@ const PendingUsers = () => {
                               <div
                                 key={idx}
                                 style={{
-                                  marginTop: '0.5rem',
-                                  padding: '0.5rem',
+                                  marginTop: idx ? '0.5rem' : 0,
+                                  padding: '0.65rem 0.75rem',
                                   background: '#fff',
                                   border: '1px solid #e5e7eb',
-                                  borderRadius: '6px',
+                                  borderRadius: 8,
                                 }}
                               >
-                                <p style={{ margin: 0 }}>
-                                  <strong>Company {idx + 1}:</strong>{' '}
-                                  {entry.companyName || '—'}
-                                </p>
-                                <p style={{ margin: '0.2rem 0' }}>
-                                  <strong>Role:</strong> {entry.jobRole || '—'}
-                                </p>
-                                <p style={{ margin: '0.2rem 0' }}>
-                                  <strong>From:</strong> {from} — <strong>To:</strong> {to}
-                                </p>
-                                {entry.responsibilities ? (
-                                  <p style={{ margin: '0.2rem 0' }}>
-                                    <strong>Responsibilities:</strong> {entry.responsibilities}
-                                  </p>
-                                ) : null}
-                                {entry.reasonForLeaving && !entry.currentlyWorking ? (
-                                  <p style={{ margin: '0.2rem 0' }}>
-                                    <strong>Reason for leaving:</strong>{' '}
-                                    {entry.reasonForLeaving}
-                                  </p>
-                                ) : null}
+                                <div style={detailGridStyle}>
+                                  <DetailRow label={`Company ${idx + 1}`}>
+                                    {entry.companyName || '—'}
+                                  </DetailRow>
+                                  <DetailRow label="Role">{entry.jobRole || '—'}</DetailRow>
+                                  <DetailRow label="Period">
+                                    {from} — {to}
+                                  </DetailRow>
+                                  {entry.responsibilities ? (
+                                    <DetailRow label="Responsibilities">
+                                      {entry.responsibilities}
+                                    </DetailRow>
+                                  ) : null}
+                                  {entry.reasonForLeaving && !entry.currentlyWorking ? (
+                                    <DetailRow label="Reason for leaving">
+                                      {entry.reasonForLeaving}
+                                    </DetailRow>
+                                  ) : null}
+                                </div>
                               </div>
                             );
                           })}
                         </div>
                       ) : (
-                        <>
-                          <p>
-                            <strong>Previous Company / Organization:</strong>{' '}
+                        <div style={{ ...detailGridStyle, marginTop: '0.85rem' }}>
+                          <DetailRow label="Previous company">
                             {user.previousCompany || '—'}
-                          </p>
-                          <p>
-                            <strong>Previous Work Experience:</strong>{' '}
+                          </DetailRow>
+                          <DetailRow label="Previous experience">
                             {user.previousWorkExperience || '—'}
-                          </p>
-                          <p>
-                            <strong>Previous Job Role / Designation:</strong>{' '}
+                          </DetailRow>
+                          <DetailRow label="Previous role">
                             {user.previousJobRole || '—'}
-                          </p>
-                        </>
+                          </DetailRow>
+                        </div>
                       )}
+
                       {(user.profilePic || user.resume?.url || user.aadharCard?.url) && (
                         <div
                           style={{
-                            marginTop: '0.75rem',
+                            marginTop: '0.85rem',
+                            paddingTop: '0.75rem',
+                            borderTop: '1px solid #e2e8f0',
                             display: 'flex',
                             flexWrap: 'wrap',
                             gap: '0.5rem',
                             alignItems: 'center',
                           }}
                         >
+                          <span style={detailLabelStyle}>Documents</span>
                           {user.profilePic ? (
                             <a
                               href={user.profilePic}

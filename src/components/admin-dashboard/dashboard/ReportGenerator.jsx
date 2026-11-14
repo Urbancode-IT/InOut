@@ -1,6 +1,11 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { FiDownload } from 'react-icons/fi';
+import {
+  activeEmployees,
+  normalizeId,
+  presentEmployeeIds,
+} from '../../../utils/dashboardLogs';
 
 const ReportGenerator = ({ logs, allUsers, selectedDate }) => {
 
@@ -29,14 +34,16 @@ const ReportGenerator = ({ logs, allUsers, selectedDate }) => {
     const selectedDateLogs = logs.filter(log => 
       new Date(log.timestamp).toDateString() === reportDate.toDateString()
     );
-    
-    // Get absent users for selected date
-    const presentUserIds = Array.from(new Set(
-  selectedDateLogs
-    .filter(log => log.type === 'check-in' && log.userId)
-    .map(log => log.userId)
-));
-    const absentees = allUsers.filter(user => !presentUserIds.includes(user._id));
+
+    // Only active employees (excludes inactive / relieved / skip-attendance roles)
+    const activeUsers = activeEmployees(allUsers);
+    const presentIds = presentEmployeeIds(selectedDateLogs);
+    const presentCount = activeUsers.filter((user) =>
+      presentIds.has(normalizeId(user._id))
+    ).length;
+    const absentees = activeUsers.filter(
+      (user) => !presentIds.has(normalizeId(user._id))
+    );
 
     // Report header
     doc.setFontSize(20);
@@ -113,7 +120,7 @@ const ReportGenerator = ({ logs, allUsers, selectedDate }) => {
 
 // ✅ Now `doc.lastAutoTable.finalY` exists
 doc.setFontSize(12);
-doc.text(`Total Present: ${presentUserIds.length}`, 14, doc.lastAutoTable.finalY + 10);
+doc.text(`Total Present: ${presentCount}`, 14, doc.lastAutoTable.finalY + 10);
 
     
     // Absentees section
@@ -156,9 +163,9 @@ doc.text(`Total Present: ${presentUserIds.length}`, 14, doc.lastAutoTable.finalY
       doc.text('No absent employees', 14, doc.lastAutoTable.finalY + 20);
     }
     doc.setFontSize(12);
-doc.text(`Total Employees: ${allUsers.length}`, 14, doc.lastAutoTable.finalY + 10);
-doc.text(`Total Present: ${presentUserIds.length}`, 14, doc.lastAutoTable.finalY + 16);
-doc.text(`Total Absent: ${allUsers.length - presentUserIds.length}`, 14, doc.lastAutoTable.finalY + 22);
+doc.text(`Total Employees: ${activeUsers.length}`, 14, doc.lastAutoTable.finalY + 10);
+doc.text(`Total Present: ${presentCount}`, 14, doc.lastAutoTable.finalY + 16);
+doc.text(`Total Absent: ${absentees.length}`, 14, doc.lastAutoTable.finalY + 22);
 
     // Footer
     doc.setFontSize(10);

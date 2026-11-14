@@ -43,6 +43,60 @@ code {
   font-size: 0.85rem;
   opacity: 0.85;
 }
+
+.Toastify__toast.ct-toast-schedule {
+  border-radius: 14px;
+  border: 1px solid #fecaca;
+  background: #fff;
+  color: #0f172a;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+  min-height: auto;
+  padding: 4px 2px;
+}
+.ct-box-schedule {
+  gap: 10px;
+  padding: 4px 2px 2px;
+  min-width: 260px;
+}
+.ct-schedule-badge {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.ct-schedule-danger {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+.ct-schedule-primary {
+  background: #e6f5f3;
+  color: #0f7a6e;
+  border: 1px solid #b7e4de;
+}
+.ct-box-schedule .ct-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+.ct-box-schedule .ct-text {
+  font-size: 0.9rem;
+  line-height: 1.45;
+  opacity: 1;
+  color: #475569;
+}
+.ct-box-schedule .ct-actions {
+  margin-top: 6px;
+}
+.ct-box-schedule .ct-btn {
+  border-radius: 8px;
+  padding: 8px 16px;
+  min-width: 5.5rem;
+}
 .ct-label {
   font-size: 0.8rem;
   opacity: 0.75;

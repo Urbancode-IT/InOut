@@ -3,9 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { API_ENDPOINTS } from '../../utils/api';
-
-/** Matches backend policy: 1 Sick + 1 Casual + 1 Emergency day per calendar month. */
-const MONTHLY_LEAVE_LIMITS = { Casual: 1, Sick: 1, Emergency: 1 };
+import {
+  FORGOT_PUNCH_LEAVE_TYPE,
+  MONTHLY_LEAVE_LIMITS,
+  isForgotPunchLeaveType,
+} from '../../utils/leaveTypes';
+import './ApplyLeaveForm.css';
 
 /** Parse leave dates in local calendar (avoids UTC shift on YYYY-MM-DD). */
 function startOfLocalDay(date) {
@@ -131,7 +134,7 @@ const ApplyLeaveForm = () => {
     const token = localStorage.getItem('token');
     setSubmitting(true);
     try {
-      await axios.post(API_ENDPOINTS.applyLeave, {
+      const res = await axios.post(API_ENDPOINTS.applyLeave, {
         fromDate,
         toDate,
         reason,
@@ -140,7 +143,17 @@ const ApplyLeaveForm = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      toast.success('Leave Applied! Your leave has been submitted successfully.');
+      if (res.data?.inoutUnlocked) {
+        toast.success(
+          isForgotPunchLeaveType(leaveType)
+            ? 'Submitted! In-Out unlocked. Marked Present for that day.'
+            : 'Leave Applied! In-Out unlocked. You can check in and check out now.'
+        );
+      } else if (isForgotPunchLeaveType(leaveType)) {
+        toast.success('Submitted! Forgot check-in/out recorded as Present.');
+      } else {
+        toast.success('Leave Applied! Your leave has been submitted successfully.');
+      }
 
       navigate('/attendance');
     } catch (error) {
@@ -153,90 +166,137 @@ const ApplyLeaveForm = () => {
   };
 
   const monthName = now.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+  const forgotPunch = isForgotPunchLeaveType(leaveType);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 flex items-center justify-center p-4">
-      <div className="bg-white shadow-xl rounded-3xl p-8 max-w-lg w-full transition-all duration-300 border border-blue-100">
-        <h2 className="text-2xl font-bold text-center text-indigo-700 mb-6">Apply for Leave</h2>
+    <div className="leave-apply-page">
+      <div className="leave-apply-shell">
+        <div className="leave-apply-card">
+          <h2 className="leave-apply-title">Apply for Leave</h2>
 
-        <div className="mb-5 rounded-2xl border border-indigo-100 bg-indigo-50/70 px-4 py-3 text-sm text-indigo-900">
-          <p className="font-semibold mb-1">Monthly quota ({monthName})</p>
-          <p>Casual Leave (CL): {currentMonthUsed.Casual}/{MONTHLY_LEAVE_LIMITS.Casual} used</p>
-          <p>Sick Leave (SL): {currentMonthUsed.Sick}/{MONTHLY_LEAVE_LIMITS.Sick} used</p>
-          <p>Emergency: {currentMonthUsed.Emergency}/{MONTHLY_LEAVE_LIMITS.Emergency} used</p>
-          <p className="mt-1 text-xs text-indigo-700/80">
-            Each type allows 1 day per month (CL, SL, Emergency). An extra or multi-day request of the same type is blocked.
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm text-gray-600 font-medium mb-1">From Date</label>
-            <input
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              required
-              className="w-full rounded-xl border px-4 py-2 outline-indigo-500 shadow-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 font-medium mb-1">To Date</label>
-            <input
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              required
-              className="w-full rounded-xl border px-4 py-2 outline-indigo-500 shadow-sm"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 font-medium mb-1">Leave Type</label>
-            <select
-              value={leaveType}
-              onChange={(e) => setLeaveType(e.target.value)}
-              className="w-full rounded-xl border px-4 py-2 outline-indigo-500 shadow-sm"
-            >
-              <option value="Casual">Casual</option>
-              <option value="Sick">Sick</option>
-              <option value="Emergency">Emergency</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm text-gray-600 font-medium mb-1">Reason</label>
-            <textarea
-              placeholder="Brief reason for leave..."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              required
-              rows={4}
-              className="w-full rounded-xl border px-4 py-2 outline-indigo-500 shadow-sm"
-            />
-          </div>
-
-          {quotaBlockedMessage && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
-              {quotaBlockedMessage}
+          <div className="leave-apply-quota">
+            <p className="leave-apply-quota-title">Monthly quota ({monthName})</p>
+            <ul className="leave-apply-quota-list">
+              <li>
+                <span>Casual Leave (CL)</span>
+                <span>
+                  {currentMonthUsed.Casual}/{MONTHLY_LEAVE_LIMITS.Casual} used
+                </span>
+              </li>
+              <li>
+                <span>Sick Leave (SL)</span>
+                <span>
+                  {currentMonthUsed.Sick}/{MONTHLY_LEAVE_LIMITS.Sick} used
+                </span>
+              </li>
+              <li>
+                <span>Emergency</span>
+                <span>
+                  {currentMonthUsed.Emergency}/{MONTHLY_LEAVE_LIMITS.Emergency} used
+                </span>
+              </li>
+            </ul>
+            <p className="leave-apply-quota-note">
+              Each type allows 1 day per month. Forgot Check-In/Out has no quota and counts as
+              Present in reports.
             </p>
-          )}
-
-          <div className="flex justify-between">
-            <button
-              type="button"
-              onClick={() => navigate('/attendance')}
-              className="bg-gray-200 text-gray-800 px-5 py-2 rounded-xl hover:bg-gray-300 transition"
-            >
-              Back
-            </button>
-            <button
-              type="submit"
-              disabled={submitting || Boolean(quotaBlockedMessage)}
-              className="bg-indigo-600 text-white px-6 py-2 rounded-xl hover:bg-indigo-700 shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {submitting ? 'Submitting...' : 'Submit'}
-            </button>
           </div>
-        </form>
+
+          <form onSubmit={handleSubmit} className="leave-apply-form">
+            <div className="leave-apply-row-2">
+              <div className="leave-apply-field">
+                <label className="leave-apply-label" htmlFor="leave-from-date">
+                  From Date
+                </label>
+                <input
+                  id="leave-from-date"
+                  type="date"
+                  value={fromDate}
+                  onChange={(e) => setFromDate(e.target.value)}
+                  required
+                  className="leave-apply-input"
+                />
+              </div>
+              <div className="leave-apply-field">
+                <label className="leave-apply-label" htmlFor="leave-to-date">
+                  To Date
+                </label>
+                <input
+                  id="leave-to-date"
+                  type="date"
+                  value={toDate}
+                  onChange={(e) => setToDate(e.target.value)}
+                  required
+                  className="leave-apply-input"
+                />
+              </div>
+            </div>
+
+            <div className="leave-apply-field">
+              <label className="leave-apply-label" htmlFor="leave-type">
+                Type
+              </label>
+              <select
+                id="leave-type"
+                value={leaveType}
+                onChange={(e) => setLeaveType(e.target.value)}
+                className="leave-apply-select"
+              >
+                <option value="Casual">Casual</option>
+                <option value="Sick">Sick</option>
+                <option value="Emergency">Emergency</option>
+                <option value={FORGOT_PUNCH_LEAVE_TYPE}>{FORGOT_PUNCH_LEAVE_TYPE}</option>
+              </select>
+            </div>
+
+            {forgotPunch && (
+              <p className="leave-apply-hint">
+                Use this if you came to office but forgot check-in / check-out. It unlocks In-Out
+                and shows as Present (not Leave) in monthly reports.
+              </p>
+            )}
+
+            <div className="leave-apply-field">
+              <label className="leave-apply-label" htmlFor="leave-reason">
+                Reason
+              </label>
+              <textarea
+                id="leave-reason"
+                placeholder={
+                  forgotPunch
+                    ? 'Brief note (e.g. forgot to punch, was in office)...'
+                    : 'Brief reason for leave...'
+                }
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                required
+                rows={4}
+                className="leave-apply-textarea"
+              />
+            </div>
+
+            {quotaBlockedMessage && (
+              <p className="leave-apply-error">{quotaBlockedMessage}</p>
+            )}
+
+            <div className="leave-apply-actions">
+              <button
+                type="button"
+                onClick={() => navigate('/attendance')}
+                className="leave-apply-btn secondary"
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                disabled={submitting || Boolean(quotaBlockedMessage)}
+                className="leave-apply-btn primary"
+              >
+                {submitting ? 'Submitting...' : 'Submit'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

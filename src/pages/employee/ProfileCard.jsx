@@ -9,6 +9,8 @@ import {
 } from '../../utils/attendanceLock';
 import { buildPayslipViewModel } from '../../utils/payslipViewModel';
 import { downloadPayslipPdf } from '../../utils/payslipPdf';
+import { confirmToast } from '../../utils/interactiveToast';
+import PayslipDetailModal from '../../components/admin-dashboard/payslip/PayslipDetailModal';
 
 export default function ProfileCard() {
   const [profile, setProfile] = useState({
@@ -37,9 +39,12 @@ export default function ProfileCard() {
     rolesAndResponsibility: [],
     skills: [],
     bankDetails: {
+      accountHolderName: "",
       bankingName: "",
       bankAccountNumber: "",
       ifscCode: "",
+      branchName: "",
+      accountType: "",
       upiId: ""
     }
   });
@@ -55,6 +60,7 @@ export default function ProfileCard() {
   const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/jpg'];
   const [previewSrc, setPreviewSrc] = useState(null);
   const [payslips, setPayslips] = useState([]);
+  const [viewPayslip, setViewPayslip] = useState(null);
 
   // Fetch user profile data from backend
   useEffect(() => {
@@ -93,9 +99,12 @@ export default function ProfileCard() {
           rolesAndResponsibility: Array.isArray(data.rolesAndResponsibility) ? data.rolesAndResponsibility : [],
           skills: Array.isArray(data.skills) ? data.skills : [],
           bankDetails: {
+            accountHolderName: (data.bankDetails && data.bankDetails.accountHolderName) || "",
             bankingName: (data.bankDetails && data.bankDetails.bankingName) || "",
             bankAccountNumber: (data.bankDetails && data.bankDetails.bankAccountNumber) || "",
             ifscCode: (data.bankDetails && data.bankDetails.ifscCode) || "",
+            branchName: (data.bankDetails && data.bankDetails.branchName) || "",
+            accountType: (data.bankDetails && data.bankDetails.accountType) || "",
             upiId: (data.bankDetails && data.bankDetails.upiId) || ""
           }
         };
@@ -158,6 +167,30 @@ export default function ProfileCard() {
 
     const fileName = `Payslip_${(employeeDetails?.name || "Employee").replace(/\s+/g, "_")}_${(month || "").replace(/\s+/g, "_")}.pdf`;
     await downloadPayslipPdf(viewModel, fileName);
+  };
+
+  const deletePayslip = async (payslip) => {
+    const confirmed = await confirmToast({
+      title: 'Delete payslip?',
+      text: `Delete your payslip for ${payslip.month || 'this month'}?`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(API_ENDPOINTS.deletePayslip(payslip._id), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setPayslips((prev) => prev.filter((p) => p._id !== payslip._id));
+      toast.success('Payslip deleted');
+      if (viewPayslip?._id === payslip._id) setViewPayslip(null);
+    } catch (error) {
+      console.error('Error deleting payslip:', error);
+      toast.error(error.response?.data?.message || 'Failed to delete payslip');
+    }
   };
 
   const handleInputChange = (field, value) => {
@@ -252,6 +285,13 @@ export default function ProfileCard() {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
 
+    // Employees can upload Aadhaar only once — no change/re-upload
+    if (profile.aadharCard?.url) {
+      toast.warning('Aadhaar Card is already uploaded and cannot be changed. Contact admin if you need an update.');
+      e.target.value = '';
+      return;
+    }
+
     const allowedMimes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
     if (!allowedMimes.includes(file.type)) {
       toast.warning('Invalid file type: Only JPG/PNG images and PDF documents are allowed.');
@@ -318,7 +358,7 @@ export default function ProfileCard() {
           </div>
         )}
       </div>
-      {missingLabels.length > 0 && (
+      {profile.role !== 'admin' && missingLabels.length > 0 && (
         <div
           className="profile-incomplete-banner"
           style={{
@@ -703,7 +743,20 @@ export default function ProfileCard() {
             </div>
             <div className="banking-info">
               <div className="info-row">
-                 Bank Name *: 
+                 Account Holder Name *:
+                {(editing === 'bankDetails' || isEditingAll) ? (
+                  <input
+                    type="text"
+                    value={profile.bankDetails.accountHolderName || ''}
+                    onChange={(e) => handleNestedInputChange('bankDetails', 'accountHolderName', e.target.value)}
+                    className="edit-input"
+                  />
+                ) : (
+                  <span>{profile.bankDetails.accountHolderName || '—'}</span>
+                )}
+              </div>
+              <div className="info-row">
+                 Bank Name *:
                 {(editing === 'bankDetails' || isEditingAll) ? (
                   <input
                     type="text"
@@ -716,7 +769,7 @@ export default function ProfileCard() {
                 )}
               </div>
               <div className="info-row">
-                 Account Number *: 
+                 Account Number *:
                 {(editing === 'bankDetails' || isEditingAll) ? (
                   <input
                     type="text"
@@ -729,7 +782,7 @@ export default function ProfileCard() {
                 )}
               </div>
               <div className="info-row">
-                 IFSC Code *: 
+                 IFSC Code *:
                 {(editing === 'bankDetails' || isEditingAll) ? (
                   <input
                     type="text"
@@ -742,7 +795,36 @@ export default function ProfileCard() {
                 )}
               </div>
               <div className="info-row">
-                 UPI ID: 
+                 Branch Name:
+                {(editing === 'bankDetails' || isEditingAll) ? (
+                  <input
+                    type="text"
+                    value={profile.bankDetails.branchName || ''}
+                    onChange={(e) => handleNestedInputChange('bankDetails', 'branchName', e.target.value)}
+                    className="edit-input"
+                  />
+                ) : (
+                  <span>{profile.bankDetails.branchName || '—'}</span>
+                )}
+              </div>
+              <div className="info-row">
+                 Account Type *:
+                {(editing === 'bankDetails' || isEditingAll) ? (
+                  <select
+                    value={profile.bankDetails.accountType || ''}
+                    onChange={(e) => handleNestedInputChange('bankDetails', 'accountType', e.target.value)}
+                    className="edit-input"
+                  >
+                    <option value="">Select Account Type</option>
+                    <option value="Savings">Savings</option>
+                    <option value="Current">Current</option>
+                  </select>
+                ) : (
+                  <span>{profile.bankDetails.accountType || '—'}</span>
+                )}
+              </div>
+              <div className="info-row">
+                 UPI ID:
                 {(editing === 'bankDetails' || isEditingAll) ? (
                   <input
                     type="text"
@@ -869,26 +951,6 @@ export default function ProfileCard() {
                       >
                         View Card
                       </button>
-                      <label style={{
-                        padding: '6px 14px',
-                        background: '#ffffff',
-                        color: '#374151',
-                        border: '1px solid #cbd5e1',
-                        borderRadius: '20px',
-                        fontWeight: '600',
-                        fontSize: '0.85rem',
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {uploadingAadhar ? 'Uploading...' : 'Change'}
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/jpg,application/pdf"
-                          disabled={uploadingAadhar}
-                          onChange={handleAadharUpload}
-                          style={{ display: 'none' }}
-                        />
-                      </label>
                     </>
                   ) : (
                     <>
@@ -923,7 +985,7 @@ export default function ProfileCard() {
                         whiteSpace: 'nowrap',
                         boxShadow: '0 2px 6px rgba(21, 156, 142, 0.2)'
                       }}>
-                        {uploadingAadhar ? 'Uploading...' : 'Upload Aadhaar Card'}
+                        {uploadingAadhar ? 'Verifying...' : 'Upload Aadhaar Card'}
                         <input
                           type="file"
                           accept="image/jpeg,image/png,image/jpg,application/pdf"
@@ -932,6 +994,15 @@ export default function ProfileCard() {
                           style={{ display: 'none' }}
                         />
                       </label>
+                      <span style={{
+                        flex: '1 1 100%',
+                        fontSize: '0.75rem',
+                        color: '#64748b',
+                        textAlign: 'right',
+                        lineHeight: 1.35,
+                      }}>
+                        Clear photo of your Aadhaar card only. Other documents will be rejected.
+                      </span>
                     </>
                   )}
                 </div>
@@ -985,8 +1056,11 @@ export default function ProfileCard() {
                 )}
               </div>
               <div className="info-row">
-                 Salary: 
-                <span>₹{Number(profile.salary).toLocaleString()}/year</span>
+                 Salary:
+                <span>
+                  ₹{Number(profile.salary).toLocaleString()}/year
+                  <span className="text-xs text-gray-500 ml-2">(Admin only — not editable)</span>
+                </span>
               </div>
               <div className="info-row">
                  Date of Joining: 
@@ -1014,18 +1088,37 @@ export default function ProfileCard() {
                 <div style={{ color: '#666', fontStyle: 'italic' }}>No payslips found</div>
               ) : (
                 payslips.map((payslip) => (
-                  <div key={payslip._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', borderBottom: '1px solid #eee' }}>
+                  <div key={payslip._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', padding: '10px', borderBottom: '1px solid #eee', flexWrap: 'wrap' }}>
                     <div>
                       <div style={{ fontWeight: 'bold' }}>{payslip.month}</div>
                       <div style={{ fontSize: '0.85rem', color: '#666' }}>Net Pay: ₹{payslip.netPay?.toFixed(2)}</div>
                     </div>
-                    <button 
-                      className="save-btn main-save" 
-                      style={{ padding: '6px 12px', fontSize: '0.85rem' }}
-                      onClick={() => generatePDF(payslip)}
-                    >
-                      Download
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        className="save-btn"
+                        style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+                        onClick={() => setViewPayslip(payslip)}
+                      >
+                        View
+                      </button>
+                      <button
+                        type="button"
+                        className="save-btn main-save"
+                        style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+                        onClick={() => generatePDF(payslip)}
+                      >
+                        Download
+                      </button>
+                      <button
+                        type="button"
+                        className="save-btn"
+                        style={{ padding: '6px 12px', fontSize: '0.85rem', background: '#fee2e2', color: '#b91c1c' }}
+                        onClick={() => deletePayslip(payslip)}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -1109,19 +1202,6 @@ export default function ProfileCard() {
               )}
             </div>
             <div style={{ padding: '1rem 1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              <label className="edit-btn" style={{ padding: '6px 16px', fontSize: '0.9rem', cursor: 'pointer', margin: 0, display: 'inline-flex', alignItems: 'center' }}>
-                {uploadingAadhar ? 'Uploading...' : 'Change / Re-upload File'}
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/jpg,application/pdf"
-                  disabled={uploadingAadhar}
-                  onChange={(e) => {
-                    handleAadharUpload(e);
-                    setViewAadharModal(false);
-                  }}
-                  style={{ display: 'none' }}
-                />
-              </label>
               <a
                 href={profile.aadharCard.url}
                 target="_blank"
@@ -1142,6 +1222,14 @@ export default function ProfileCard() {
             </div>
           </div>
         </div>
+      )}
+
+      {viewPayslip && (
+        <PayslipDetailModal
+          payslip={viewPayslip}
+          mode="view"
+          onClose={() => setViewPayslip(null)}
+        />
       )}
     </div>
   );

@@ -285,6 +285,25 @@ const UserCard = ({ user, className = '', onEdit, forceExpanded = false, onClose
                   </div>
                 </div>
               )}
+              <div className="uc-profile-row">
+                <FiFileText size={18} color="#0b2d67" style={{ flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <div><strong>Resume:</strong></div>
+                  {user.resume?.url ? (
+                    <a
+                      href={user.resume.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#0b2d67', fontWeight: 600, fontSize: '0.85rem', textDecoration: 'underline' }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {user.resume.filename || 'View Resume'}
+                    </a>
+                  ) : (
+                    <span style={{ fontSize: '0.8rem', color: '#9a3412' }}>Resume not uploaded</span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 

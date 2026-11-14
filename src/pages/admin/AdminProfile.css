@@ -5,7 +5,7 @@
 .admin-profile-page-card {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.35rem;
 }
 
 .admin-profile-page-header {
@@ -13,19 +13,25 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
+  border-bottom: 1px solid #eef2f7;
+  margin: 0 0 0.15rem;
+  padding-bottom: 1rem;
 }
 
 .admin-profile-page-title {
   margin: 0;
   font-size: 1.35rem;
   font-weight: 700;
-  color: #111827;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
 }
 
 .admin-profile-page-subtitle {
-  margin: 0.25rem 0 0;
+  margin: 0.3rem 0 0;
   font-size: 0.875rem;
   color: #6b7280;
+  line-height: 1.4;
 }
 
 .admin-profile-muted {
@@ -34,28 +40,37 @@
   margin: 0;
 }
 
+/* Identity: photo + actions on one left-aligned row */
 .admin-profile-avatar-block {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: auto 1fr;
   align-items: center;
-  gap: 0.75rem;
+  gap: 1.1rem 1.25rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.85rem;
+  background: #f8fafc;
+  box-sizing: border-box;
 }
 
 .admin-profile-avatar-img,
 .admin-profile-avatar-fallback {
-  width: 6.5rem;
-  height: 6.5rem;
+  width: 5.5rem;
+  height: 5.5rem;
   border-radius: 9999px;
   object-fit: cover;
+  flex-shrink: 0;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 
 .admin-profile-avatar-fallback {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #ede9fe;
-  color: #5b21b6;
-  font-size: 2rem;
+  background: linear-gradient(145deg, #159c8e, #0f7a6e);
+  color: #fff;
+  font-size: 1.75rem;
   font-weight: 700;
 }
 
@@ -63,49 +78,139 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 0.5rem;
-  width: 100%;
+  min-width: 0;
 }
 
 .admin-profile-upload-btn {
   cursor: pointer;
+  min-height: 2.4rem;
+}
+
+.admin-profile-pic-actions .uc-btn {
+  min-height: 2.4rem;
+  border-radius: 0.55rem;
+  font-weight: 650;
 }
 
 .admin-profile-hint {
   flex-basis: 100%;
+  margin: 0.15rem 0 0;
   font-size: 0.75rem;
   color: #9ca3af;
-  text-align: center;
+  text-align: left;
+  line-height: 1.35;
 }
 
 .admin-profile-fields {
   display: grid;
-  gap: 0.9rem;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem 1rem;
+}
+
+.admin-profile-field {
+  display: grid;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.admin-profile-field-span {
+  grid-column: 1 / -1;
 }
 
 .admin-profile-field label {
   display: block;
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: 0.78rem;
+  font-weight: 650;
   color: #6b7280;
-  margin-bottom: 0.35rem;
+  margin: 0;
+  letter-spacing: 0.01em;
 }
 
+.admin-profile-field .uc-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Role matches input height / shape (not a floating pill) */
 .admin-profile-role-badge {
-  display: inline-block;
+  display: flex;
+  align-items: center;
   margin: 0;
-  padding: 0.25rem 0.65rem;
-  border-radius: 9999px;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2.6rem;
+  padding: 0 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid #d1fae5;
   background: #ecfdf5;
   color: #047857;
-  font-size: 0.85rem;
-  font-weight: 600;
+  font-size: 0.875rem;
+  font-weight: 650;
+  line-height: 1.2;
 }
 
 .admin-profile-page-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid #eef2f7;
+  margin-top: 0.15rem;
+}
+
+.admin-profile-page-actions .uc-btn {
+  width: 100%;
+  min-height: 2.65rem;
+  border-radius: 0.65rem;
+  font-weight: 650;
+}
+
+.admin-profile-password-wrap {
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding-top: 0.25rem;
+  align-items: center;
+  width: 100%;
+}
+
+.admin-profile-password-wrap .uc-input {
+  width: 100%;
+  padding-right: 2.75rem;
+}
+
+.admin-profile-password-toggle {
+  position: absolute;
+  right: 0.55rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.admin-profile-password-toggle:hover {
+  color: #0f7a6e;
+  background: #f1f5f9;
+}
+
+@media (max-width: 560px) {
+  .admin-profile-avatar-block {
+    grid-template-columns: 1fr;
+    justify-items: start;
+    text-align: left;
+  }
+
+  .admin-profile-fields,
+  .admin-profile-page-actions {
+    grid-template-columns: 1fr;
+  }
 }

@@ -972,47 +972,22 @@ const OfferLetters = ({
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       setPdfUrl(URL.createObjectURL(blob));
 
-      // Onboarding: save details, upload to All Letters, record generation metadata
+      // Onboarding: save form details only. All Letters save happens on Download.
       if (onboardingMode && selected) {
         try {
           await persistOfferDetails();
-          const { uploadLetterBytes } = await import('../../utils/uploadLetter');
-          const uploadRes = await uploadLetterBytes(
-            pdfBytes,
-            `${titleText || 'Offer Letter'}.pdf`,
-            {
-              candidateId: selected,
-              candidateName: form.candidateName || '',
-              letterName: titleText || 'Offer Letter',
-              letterType: 'offer',
-            }
-          );
-          const pdfUrl =
-            uploadRes?.url ||
-            uploadRes?.letter?.url ||
-            uploadRes?.letterCopy?.url ||
-            '';
-          const token = localStorage.getItem('token');
-          const rec = await axios.post(
-            API_ENDPOINTS.recordOfferGenerated(selected),
-            {
-              pdfUrl,
-              pdfFilename: `${titleText || 'Offer Letter'}.pdf`,
-              details: buildOfferDetailsPayload(),
-            },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          setOfferMeta(rec.data?.offerLetter || null);
           setPdfOutdated(false);
           setDetailsDirtyAfterPdf(false);
-          toast.success('Offer Letter generated and saved to All Letters');
+          toast.success('Offer Letter preview ready — Download to save in All Letters');
         } catch (persistErr) {
           console.error('Offer generate persist failed', persistErr);
           toast.warning(
             persistErr.response?.data?.error ||
-              'PDF preview ready, but saving offer metadata failed. You can retry Generate.'
+              'PDF preview ready, but saving offer details failed. You can retry Generate.'
           );
         }
+      } else {
+        toast.success('Offer Letter preview ready');
       }
 
       return pdfBytes;
@@ -1026,7 +1001,6 @@ const OfferLetters = ({
   };
 
   const [sendingMail, setSendingMail] = useState(false);
-  const [activatingOffer, setActivatingOffer] = useState(false);
 
   const handleSendMail = async () => {
     if (!form.email || !form.email.trim()) {
@@ -1110,42 +1084,6 @@ const OfferLetters = ({
     }
   };
 
-  const handleAcceptAndActivate = async () => {
-    if (!onboardingMode || !selected) {
-      toast.warning('No employee linked for this offer.');
-      return;
-    }
-    if (offerMeta?.status === 'Accepted') {
-      toast.info('Offer already accepted — employee is active.');
-      return;
-    }
-    const confirmed = window.confirm(
-      `Accept this offer and activate login for ${form.candidateName || form.email || 'this employee'}?\n\nThis will approve the registration and make them an active user (no email link needed).`
-    );
-    if (!confirmed) return;
-
-    setActivatingOffer(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await axios.post(
-        API_ENDPOINTS.acceptOfferAsAdmin(selected),
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      toast.success(res.data?.message || 'Offer accepted — employee is now active.');
-      setOfferMeta((prev) => ({
-        ...(prev || {}),
-        status: 'Accepted',
-        acceptedAt: new Date().toISOString(),
-      }));
-    } catch (err) {
-      console.error('Accept & Activate failed:', err);
-      toast.error(err.response?.data?.error || err.message || 'Failed to accept and activate');
-    } finally {
-      setActivatingOffer(false);
-    }
-  };
-
   const printPdf = () => {
     if (!pdfUrl) return;
     const win = window.open(pdfUrl, '_blank');
@@ -1160,29 +1098,77 @@ const OfferLetters = ({
   const downloadPdf = () => {
     if (!pdfUrl) return;
     const uploadAndDownload = async () => {
+      // Always download locally first so the file is never blocked by upload errors
+      const a = document.createElement('a');
+      a.href = pdfUrl;
+      a.download = `${form.candidateName || 'offer-letter'}.pdf`;
+      a.click();
+
+      if (!pdfBytesData) {
+        toast.warning('PDF downloaded, but nothing to save — regenerate preview first.');
+        return;
+      }
+
       try {
-        if (pdfBytesData) {
-          const { uploadLetterBytes } = await import('../../utils/uploadLetter');
-          await uploadLetterBytes(
-            pdfBytesData,
-            `${titleText || 'Offer Letter'}.pdf`,
-            {
-              candidateId: selected || undefined,
-              candidateName: form.candidateName || '',
-              letterName: titleText || 'Offer Letter',
-              letterType: 'offer',
-            }
-          );
-          toast.success('Saved: Letter uploaded to cloud');
+        const { uploadLetterBytes } = await import('../../utils/uploadLetter');
+        const uploadRes = await uploadLetterBytes(
+          pdfBytesData,
+          `${titleText || 'Offer Letter'}.pdf`,
+          {
+            candidateId: selected || undefined,
+            candidateName: form.candidateName || '',
+            letterName: titleText || 'Offer Letter',
+            letterType: 'offer',
+          }
+        );
+        const savedPdfUrl =
+          uploadRes?.url ||
+          uploadRes?.letter?.url ||
+          uploadRes?.letterCopy?.url ||
+          '';
+
+        // Record generation metadata only while offer is still mutable (not Accepted/Declined)
+        const offerStatus = String(offerMeta?.status || '').toLowerCase();
+        const canRecordMeta =
+          onboardingMode &&
+          selected &&
+          savedPdfUrl &&
+          !offerStatus.includes('accept') &&
+          !offerStatus.includes('declin');
+
+        if (canRecordMeta) {
+          try {
+            const token = localStorage.getItem('token');
+            const rec = await axios.post(
+              API_ENDPOINTS.recordOfferGenerated(selected),
+              {
+                pdfUrl: savedPdfUrl,
+                pdfFilename: `${titleText || 'Offer Letter'}.pdf`,
+                details: buildOfferDetailsPayload(),
+              },
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            setOfferMeta(rec.data?.offerLetter || null);
+            setPdfOutdated(false);
+            setDetailsDirtyAfterPdf(false);
+          } catch (metaErr) {
+            console.error('Offer metadata record failed', metaErr);
+            // Letter is already in All Letters via upload — do not fail the save toast
+          }
         }
+
+        toast.success('Downloaded and saved to All Letters — refresh All Letters to see it');
       } catch (err) {
         console.error('Upload failed', err);
-        toast.warning('Upload failed: Letter could not be uploaded to cloud. Download will continue.');
-      } finally {
-        const a = document.createElement('a');
-        a.href = pdfUrl;
-        a.download = `${form.candidateName || 'offer-letter'}.pdf`;
-        a.click();
+        const serverMsg =
+          err.response?.data?.error ||
+          err.response?.data?.message ||
+          err.message;
+        toast.warning(
+          serverMsg
+            ? `PDF downloaded, but All Letters save failed: ${serverMsg}`
+            : 'PDF downloaded, but could not save to All Letters.'
+        );
       }
     };
     uploadAndDownload();
@@ -1405,11 +1391,7 @@ const OfferLetters = ({
                 }}
                 disabled={generating}
               >
-                {generating
-                  ? 'Generating...'
-                  : onboardingMode
-                    ? 'Generate Offer Letter'
-                    : 'Generate Preview'}
+                {generating ? 'Generating...' : 'Generate Preview'}
               </Button>
               <Button variant="outlined" onClick={downloadPdf} disabled={!pdfUrl}>Download PDF</Button>
               <Button variant="outlined" onClick={printPdf} disabled={!pdfUrl}>Print</Button>
@@ -1419,7 +1401,6 @@ const OfferLetters = ({
                 onClick={handleSendMail}
                 disabled={
                   sendingMail ||
-                  activatingOffer ||
                   (onboardingMode && (!pdfUrl || pdfOutdated || detailsDirtyAfterPdf))
                 }
                 sx={{ backgroundColor: '#0b2d67', '&:hover': { backgroundColor: '#071d44' } }}
@@ -1430,25 +1411,6 @@ const OfferLetters = ({
                     ? 'Send Offer Letter'
                     : 'Send Mail'}
               </Button>
-              {onboardingMode && (
-                <Button
-                  variant="contained"
-                  color="success"
-                  onClick={handleAcceptAndActivate}
-                  disabled={
-                    activatingOffer ||
-                    sendingMail ||
-                    !selected ||
-                    offerMeta?.status === 'Accepted'
-                  }
-                >
-                  {activatingOffer
-                    ? 'Activating...'
-                    : offerMeta?.status === 'Accepted'
-                      ? 'Already Active'
-                      : 'Accept & Activate'}
-                </Button>
-              )}
             </Box>
 
             {selected && (candidates.find(c => c._id === selected)?.letterCopies || []).length > 0 && (

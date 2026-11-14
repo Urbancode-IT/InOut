@@ -61,9 +61,12 @@ export const buildUserUpdatePayload = (form) => {
     })),
     branch,
     bankDetails: {
+      accountHolderName: synced.bankDetails?.accountHolderName || '',
       bankingName: synced.bankDetails?.bankingName || '',
       bankAccountNumber: synced.bankDetails?.bankAccountNumber || '',
       ifscCode: synced.bankDetails?.ifscCode || '',
+      branchName: synced.bankDetails?.branchName || '',
+      accountType: synced.bankDetails?.accountType || '',
       upiId: synced.bankDetails?.upiId || '',
       officeBranch: branch,
     },

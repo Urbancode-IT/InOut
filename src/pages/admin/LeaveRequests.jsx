@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import dayjs from 'dayjs';
 import axios from 'axios';
+import { toast } from 'react-toastify';
 import { API_ENDPOINTS } from '../../utils/api';
 import {
   Box, Container, Typography, Table, TableHead, TableRow,
-  TableCell, TableBody, Paper, Button, Chip, Avatar, LinearProgress,
+  TableCell, TableBody, Paper, Button, Chip,
   Collapse, IconButton, Grid, Dialog, DialogTitle, DialogContent,
   DialogContentText, DialogActions
 } from '@mui/material';
@@ -16,10 +17,12 @@ import {
   FiCalendar as CalendarIcon,
   FiChevronDown as ExpandIcon,
   FiChevronUp as CollapseIcon,
-  FiTrash2 as DeleteIcon
+  FiTrash2 as DeleteIcon,
+  FiSearch,
 } from 'react-icons/fi';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import Loader from '../../components/admin-dashboard/common/Loader';
+import '../../styles/dashboard-ui.css';
 
 const theme = createTheme({
   typography: {
@@ -91,6 +94,8 @@ const LeaveRequestsAdmin = () => {
   const [loading, setLoading] = useState(true);
   const [expandedRows, setExpandedRows] = useState({});
   const [deleteDialog, setDeleteDialog] = useState({ open: false, id: null, userName: '' });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [monthValue, setMonthValue] = useState(() => dayjs().format('YYYY-MM'));
 
   useEffect(() => {
     fetchLeaveRequests();
@@ -103,7 +108,7 @@ const LeaveRequestsAdmin = () => {
       const res = await axios.get(API_ENDPOINTS.getAllLeaves, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setLeaveRequests(res.data);
+      setLeaveRequests(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error('Error fetching leave requests', err);
     } finally {
@@ -114,12 +119,15 @@ const LeaveRequestsAdmin = () => {
   const updateStatus = async (id, status) => {
     const token = localStorage.getItem('token');
     try {
-      await axios.patch(API_ENDPOINTS.updateLeaveStatus(id), { status }, {
+      const res = await axios.patch(API_ENDPOINTS.updateLeaveStatus(id), { status }, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setLeaveRequests((prev) =>
         prev.map((r) => (r._id === id ? { ...r, status } : r))
       );
+      if (status === 'Approved' && res.data?.inoutUnlocked) {
+        toast.success('Leave approved. In-Out was also unlocked for that employee.');
+      }
     } catch (err) {
       console.error('Error updating leave status', err);
     }
@@ -154,12 +162,44 @@ const LeaveRequestsAdmin = () => {
     setDeleteDialog({ open: false, id: null, userName: '' });
   };
 
-  const groupedRequests = leaveRequests.reduce((acc, req) => {
-    const month = dayjs(req.fromDate).format('YYYY-MM');
-    if (!acc[month]) acc[month] = [];
-    acc[month].push(req);
-    return acc;
-  }, {});
+  const filteredRequests = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+
+    return leaveRequests.filter((req) => {
+      const from = dayjs(req.fromDate);
+      if (!from.isValid()) return false;
+
+      if (monthValue && from.format('YYYY-MM') !== monthValue) {
+        return false;
+      }
+
+      if (q) {
+        const haystack = [
+          req.user?.name,
+          req.user?.email,
+          req.user?.employeeId,
+          req.leaveType,
+          req.reason,
+          req.status,
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+
+      return true;
+    });
+  }, [leaveRequests, searchTerm, monthValue]);
+
+  const groupedRequests = useMemo(() => {
+    return filteredRequests.reduce((acc, req) => {
+      const month = dayjs(req.fromDate).format('YYYY-MM');
+      if (!acc[month]) acc[month] = [];
+      acc[month].push(req);
+      return acc;
+    }, {});
+  }, [filteredRequests]);
 
   const sortedMonths = Object.keys(groupedRequests).sort((a, b) => b.localeCompare(a));
 
@@ -180,11 +220,45 @@ const LeaveRequestsAdmin = () => {
           gutterBottom
           sx={{
             fontWeight: 700,
-            mb: 4,
+            mb: 2,
           }}
         >
           <span className='text-gray-600'>
-          Leave Requests Management</span>
+          Leave Records</span>
+        </Typography>
+
+        <div
+          className="dash-filters"
+          style={{
+            marginBottom: '1.25rem',
+            gridTemplateColumns: 'minmax(0, 1fr) 220px',
+            alignItems: 'center',
+          }}
+        >
+          <div className="dash-field">
+            <FiSearch />
+            <input
+              type="text"
+              placeholder="Search name, ID, type, status..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+
+          <div className="dash-field">
+            <CalendarIcon />
+            <input
+              type="month"
+              aria-label="Month"
+              value={monthValue}
+              onChange={(e) => setMonthValue(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+          Showing {filteredRequests.length} leave request{filteredRequests.length === 1 ? '' : 's'}
         </Typography>
 
         {loading && <Loader />}
@@ -197,7 +271,7 @@ const LeaveRequestsAdmin = () => {
             minHeight="200px"
           >
             <Typography variant="h6" color="textSecondary">
-              No leave requests found
+              No leave requests found for this filter
             </Typography>
           </Box>
         )}

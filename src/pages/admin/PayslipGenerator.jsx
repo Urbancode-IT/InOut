@@ -25,6 +25,7 @@ import { API_ENDPOINTS } from "../../utils/api";
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import Loader from "../../components/admin-dashboard/common/Loader";
 import { localDateYMD } from "../../utils/localDate";
+import { isForgotPunchLeaveType, isPersonalLeaveType } from "../../utils/leaveTypes";
 import {
   enrichLogNames,
   getLogTimestamp,
@@ -64,17 +65,23 @@ const normalizeWeeklySchedule = (ws) => {
 const getDayName = (date) => date.toLocaleDateString("en-US", { weekday: "long" });
 
 const isScheduledWorkDay = (dateObj, weeklySchedule, isHolidayDate) => {
-  if (isHolidayDate || dateObj.getDay() === 0) return false;
-  if (dateObj.getDay() === 6) return true;
+  if (isHolidayDate) return false;
   const norm = normalizeWeeklySchedule(weeklySchedule);
-  if (Object.keys(norm).length === 0) return true;
   const daySchedule = norm[getDayName(dateObj)];
-  if (daySchedule === undefined) return false;
-  return !daySchedule.isLeave;
+  if (daySchedule && typeof daySchedule === 'object') {
+    return !daySchedule.isLeave;
+  }
+  // Legacy fallback: Sunday off, other days working
+  if (dateObj.getDay() === 0) return false;
+  return true;
 };
 
-const isOfficeLeaveDay = (dateObj, scheduled) =>
-  dateObj.getDay() === 0 || (dateObj.getDay() !== 6 && !!scheduled?.isLeave);
+const isOfficeLeaveDay = (dateObj, scheduled) => {
+  if (scheduled && typeof scheduled === 'object') {
+    return !!scheduled.isLeave;
+  }
+  return dateObj.getDay() === 0;
+};
 
 const eachDateInRange = (from, to) => {
   const dates = [];
@@ -284,9 +291,9 @@ const PayslipGenerator = () => {
     );
     const isHolidayDate = (dateObj) => holidayKeys.has(localDateYMD(dateObj));
 
-    const isOnApprovedLeave = (dateObj) => {
+    const findApprovedRequestOnDate = (dateObj) => {
       const key = localDateYMD(dateObj);
-      return leaves.some((leave) => {
+      return leaves.find((leave) => {
         const name = leave.user?.name || leave.employeeName;
         if (normalizeName(name) !== empKey) return false;
         if ((leave.status || "").toLowerCase() !== "approved") return false;
@@ -294,6 +301,17 @@ const PayslipGenerator = () => {
           (d) => localDateYMD(d) === key
         );
       });
+    };
+
+    /** Casual / Sick / Emergency only — Forgot Check-In/Out counts as Present. */
+    const isOnApprovedLeave = (dateObj) => {
+      const leave = findApprovedRequestOnDate(dateObj);
+      return Boolean(leave && isPersonalLeaveType(leave.leaveType));
+    };
+
+    const hasForgotPunchOnDate = (dateObj) => {
+      const leave = findApprovedRequestOnDate(dateObj);
+      return Boolean(leave && isForgotPunchLeaveType(leave.leaveType));
     };
 
     const filteredLogs = logs.filter((log) => {
@@ -341,6 +359,7 @@ const PayslipGenerator = () => {
       const holiday = isHolidayDate(date);
       const workDay = isScheduledWorkDay(date, weeklySchedule, holiday);
       const onLeave = isOnApprovedLeave(date);
+      const forgotPunch = hasForgotPunchOnDate(date);
       const attendance = grouped[dateKey];
 
       if (holiday) return;
@@ -354,7 +373,9 @@ const PayslipGenerator = () => {
 
       if (workDay) workingDays++;
 
-      if (attendance?.checkIn) {
+      if (forgotPunch) {
+        presentDays++;
+      } else if (attendance?.checkIn) {
         presentDays++;
 
         if (scheduled?.start) {

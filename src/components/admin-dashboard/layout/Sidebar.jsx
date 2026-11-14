@@ -68,7 +68,7 @@ const menuItems = [
       { label: 'Upload Documents', path: '/upload-documents' },
     ],
   },
-  { label: 'Settings', icon: <FiSettings />, path: '/coming-soon/settings', tone: 'gray' },
+  { label: 'Settings', icon: <FiSettings />, path: '/settings', tone: 'gray' },
 ];
 
 const Sidebar = ({ expanded, onExpand, onCollapse }) => {

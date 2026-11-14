@@ -17,14 +17,17 @@ import {
   FiLogOut,
   FiX,
   FiGrid,
-  FiMoreHorizontal,
+  FiSettings,
   FiDownload,
+  FiEye,
+  FiTrash2,
 } from "react-icons/fi";
 
 import { API_ENDPOINTS, logoutUser } from "../../utils/api";
 import { buildPayslipViewModel } from "../../utils/payslipViewModel";
 import { downloadPayslipPdf } from "../../utils/payslipPdf";
-import { alertToast } from "../../utils/interactiveToast";
+import { alertToast, confirmToast } from "../../utils/interactiveToast";
+import PayslipDetailModal from "../../components/admin-dashboard/payslip/PayslipDetailModal";
 import {
   ATTENDANCE_LOCKED_MESSAGE,
   PROFILE_INCOMPLETE_ENTRY_MESSAGE,
@@ -40,6 +43,11 @@ import {
   unwrapUserPayload,
 } from "../../utils/attendanceLock";
 import { skipsCheckInOut } from "../../utils/skipAttendance";
+import {
+  getScheduleMismatch,
+  pickWeeklySchedule,
+  scheduleUserIdOf,
+} from "../../utils/scheduleCompare";
 import { useTheme } from "../../utils/useTheme";
 import { useShake } from "../../utils/useShake";
 import ProfileHeader from "../../components/attendance/ProfileHeader";
@@ -72,6 +80,7 @@ function AttendancePage() {
   const [showPayslipsModal, setShowPayslipsModal] = useState(false);
   const [payslips, setPayslips] = useState([]);
   const [payslipsLoading, setPayslipsLoading] = useState(false);
+  const [viewPayslip, setViewPayslip] = useState(null);
   const [calendarViewDate, setCalendarViewDate] = useState(new Date());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [comment, setComment] = useState('');
@@ -81,6 +90,7 @@ function AttendancePage() {
   const [showProfileIncompleteModal, setShowProfileIncompleteModal] = useState(false);
   const [missingProfileFields, setMissingProfileFields] = useState([]);
   const [attendanceReady, setAttendanceReady] = useState(false);
+  const [weeklySchedule, setWeeklySchedule] = useState(null);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -92,6 +102,7 @@ function AttendancePage() {
   const autoCameraOpenedRef = useRef(false);
   /** True if Profile Incomplete was already shown for this capture → submit cycle. */
   const profileIncompleteWarnedRef = useRef(false);
+  const weeklyScheduleRef = useRef(null);
 
   const reminderAction = searchParams.get("action");
   const wantedType =
@@ -107,7 +118,12 @@ function AttendancePage() {
     autoCameraOpenedRef.current = false;
 
     (async () => {
-      await Promise.all([fetchUser(), fetchAttendance(), fetchHolidays()]);
+      await Promise.all([
+        fetchUser(),
+        fetchAttendance(),
+        fetchHolidays(),
+        fetchWeeklySchedule(),
+      ]);
       if (!cancelled) setAttendanceReady(true);
     })();
 
@@ -131,6 +147,10 @@ function AttendancePage() {
   useEffect(() => {
     attendanceLockedRef.current = attendanceLocked;
   }, [attendanceLocked]);
+
+  useEffect(() => {
+    weeklyScheduleRef.current = weeklySchedule;
+  }, [weeklySchedule]);
 
   // Attach camera stream after CameraView mounts (isCapturing true)
   useEffect(() => {
@@ -157,6 +177,65 @@ function AttendancePage() {
         setHolidays(res.data || []);
       } catch {
         setHolidays([]);
+      }
+    }
+  };
+
+  const applyWeeklySchedule = (scheduleDoc, userData) => {
+    const picked = pickWeeklySchedule(scheduleDoc, userData);
+    weeklyScheduleRef.current = picked;
+    setWeeklySchedule(picked);
+    return picked;
+  };
+
+  const fetchWeeklySchedule = async () => {
+    if (!isSelf) return;
+    const token = localStorage.getItem("token");
+    const headers = { Authorization: `Bearer ${token}` };
+    let uid = null;
+    try {
+      const decoded = jwtDecode(token);
+      uid = decoded?.id || decoded?.userId || decoded?._id || null;
+    } catch {
+      /* ignore */
+    }
+
+    let userData = null;
+    try {
+      const meRes = await axios.get(API_ENDPOINTS.getCurrentUser, { headers });
+      userData = unwrapUserPayload(meRes.data);
+      if (!uid && userData?._id) uid = userData._id;
+    } catch {
+      /* optional */
+    }
+
+    try {
+      const res = await axios.get(API_ENDPOINTS.getSchedules, { headers });
+      const list = Array.isArray(res.data) ? res.data : [];
+      const mine =
+        (uid && list.find((sch) => scheduleUserIdOf(sch) === String(uid))) ||
+        null;
+      if (mine?.weeklySchedule) {
+        applyWeeklySchedule(mine, userData);
+        return;
+      }
+    } catch {
+      /* employees may not have list access — fall back to user record */
+    }
+
+    if (userData) {
+      applyWeeklySchedule(null, userData);
+    }
+    if (uid && !weeklyScheduleRef.current) {
+      try {
+        const one = await axios.get(API_ENDPOINTS.putUserSchedule(uid), {
+          headers,
+        });
+        if (one?.data?.weeklySchedule) {
+          applyWeeklySchedule(one.data, userData);
+        }
+      } catch {
+        /* optional */
       }
     }
   };
@@ -198,6 +277,10 @@ function AttendancePage() {
       if (isSelf) {
         applyLockFromUser(userData);
         setMissingProfileFields(getMissingProfileFieldsFromUser(userData));
+        // Prefer schedule collection, but keep user.schedule / weeklySchedule as fallback
+        if (!weeklyScheduleRef.current) {
+          applyWeeklySchedule(null, userData);
+        }
       }
     } catch (err) {
       // Keep silent on profile load failure; attendance page still usable.
@@ -454,6 +537,23 @@ function AttendancePage() {
       setDetectedOffice(null);
       setComment("");
       stopCamera();
+
+      // Schedule mismatch: show only — does not block attendance.
+      const mismatch = getScheduleMismatch({
+        type,
+        at: capturedTime || new Date(),
+        weeklySchedule: weeklyScheduleRef.current,
+      });
+      if (mismatch?.message) {
+        await alertToast({
+          title: isCheckIn ? "Late check-in" : "Early check-out",
+          text: mismatch.message,
+          confirmText: "Got it",
+          tone: "danger",
+          variant: "schedule",
+        });
+      }
+
       // Always show after successful check-in when backend says incomplete
       // (Aadhaar / other required fields). Capture-time warn alone was easy to miss.
       if (incompletePayload) {
@@ -544,6 +644,30 @@ function AttendancePage() {
 
     const fileName = `Payslip_${(employeeDetails?.name || "Employee").replace(/\s+/g, "_")}_${(month || "").replace(/\s+/g, "_")}.pdf`;
     await downloadPayslipPdf(viewModel, fileName);
+  };
+
+  const deletePayslip = async (payslip) => {
+    const confirmed = await confirmToast({
+      title: "Delete payslip?",
+      text: `Delete your payslip for ${payslip.month || "this month"}?`,
+      confirmText: "Delete",
+      cancelText: "Cancel",
+      tone: "danger",
+    });
+    if (!confirmed) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(API_ENDPOINTS.deletePayslip(payslip._id), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setPayslips((prev) => prev.filter((p) => p._id !== payslip._id));
+      toast.success("Payslip deleted");
+      if (viewPayslip?._id === payslip._id) setViewPayslip(null);
+    } catch (error) {
+      console.error("Error deleting payslip:", error);
+      toast.error(error.response?.data?.message || "Failed to delete payslip");
+    }
   };
 
   const now = new Date();
@@ -758,19 +882,43 @@ const remainingWorkingDays = Math.max(0, totalWorkingDays - presentDays);
                         Net Pay: ₹{Number(payslip.netPay || 0).toFixed(2)}
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      className="att-payslips-download"
-                      onClick={() => downloadPayslip(payslip)}
-                    >
-                      Download
-                    </button>
+                    <div className="att-payslips-actions">
+                      <button
+                        type="button"
+                        className="att-payslips-action ghost"
+                        onClick={() => setViewPayslip(payslip)}
+                      >
+                        <FiEye /> View
+                      </button>
+                      <button
+                        type="button"
+                        className="att-payslips-download"
+                        onClick={() => downloadPayslip(payslip)}
+                      >
+                        <FiDownload /> Download
+                      </button>
+                      <button
+                        type="button"
+                        className="att-payslips-action danger"
+                        onClick={() => deletePayslip(payslip)}
+                      >
+                        <FiTrash2 /> Delete
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
             </div>
           </div>
         </div>
+      )}
+
+      {viewPayslip && (
+        <PayslipDetailModal
+          payslip={viewPayslip}
+          mode="view"
+          onClose={() => setViewPayslip(null)}
+        />
       )}
 
       {showCalendarModal && (
@@ -950,7 +1098,7 @@ const remainingWorkingDays = Math.max(0, totalWorkingDays - presentDays);
           </p>
           <p className="att-lock-banner-text">
             {isInoutBlockedUser(user)
-              ? (lockMessage || "You did not check in, check out, or submit a leave form. Contact an admin to unlock.")
+              ? (lockMessage || "You did not check in, check out, or submit a leave form. Submit leave for that day to unlock, or ask an admin.")
               : (
                 <>
                   Complete your profile
@@ -1155,10 +1303,10 @@ const remainingWorkingDays = Math.max(0, totalWorkingDays - presentDays);
         <button
           type="button"
           className="att-nav-item"
-          onClick={() => navigate("/task-manager")}
+          onClick={() => navigate("/employee-settings")}
         >
-          <FiMoreHorizontal />
-          More
+          <FiSettings />
+          Settings
         </button>
       </nav>
     </div>

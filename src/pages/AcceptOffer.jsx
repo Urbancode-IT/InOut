@@ -2,27 +2,44 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../utils/api';
+import './AcceptOffer.css';
 
-const card = {
-  maxWidth: 560,
-  margin: '3rem auto',
-  padding: '2rem',
-  background: '#fff',
-  borderRadius: 12,
-  boxShadow: '0 8px 30px rgba(11,45,103,0.08)',
-  border: '1px solid #e5e7eb',
+const formatJoiningDate = (value) => {
+  if (!value) return '—';
+  const raw = String(value).trim();
+  const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T12:00:00` : raw);
+  if (Number.isNaN(d.getTime())) return raw;
+  return d.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 };
 
-const btn = (variant) => ({
-  padding: '0.7rem 1.25rem',
-  borderRadius: 8,
-  border: 'none',
-  cursor: 'pointer',
-  fontWeight: 600,
-  color: '#fff',
-  background: variant === 'danger' ? '#b91c1c' : '#0b2d67',
-  opacity: 1,
-});
+const formatSalary = (value) => {
+  if (value == null || value === '') return '—';
+  const raw = String(value).trim();
+  const num = Number(raw.replace(/[^0-9.]/g, ''));
+  if (!Number.isFinite(num) || num <= 0) return raw;
+  return `₹ ${num.toLocaleString('en-IN')}`;
+};
+
+const statusClass = (status) => {
+  const s = String(status || '').toLowerCase();
+  if (s.includes('accept')) return 'is-accepted';
+  if (s.includes('declin')) return 'is-declined';
+  return 'is-pending';
+};
+
+const DetailRow = ({ label, value }) => {
+  if (value == null || value === '') return null;
+  return (
+    <div className="accept-offer-row">
+      <p className="accept-offer-label">{label}</p>
+      <p className="accept-offer-value">{value}</p>
+    </div>
+  );
+};
 
 export default function AcceptOffer() {
   const { token } = useParams();
@@ -83,77 +100,139 @@ export default function AcceptOffer() {
     }
   };
 
+  const offerStatus = offer?.offerStatus || (done?.type === 'accepted' ? 'Accepted' : done?.type === 'declined' ? 'Declined' : '');
+  const alreadyAccepted =
+    done?.type === 'accepted' || /accept/i.test(String(offer?.offerStatus || ''));
+  const alreadyDeclined =
+    done?.type === 'declined' || /declin/i.test(String(offer?.offerStatus || ''));
+
+  const headSubtitle = alreadyAccepted
+    ? 'Your offer has been confirmed. Welcome to the team.'
+    : alreadyDeclined
+      ? 'This offer was declined.'
+      : 'Review your offer details, then accept or decline.';
+
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg,#f0f4ff 0%,#fff 60%)', padding: '1rem' }}>
-      <div style={card}>
-        <h1 style={{ marginTop: 0, color: '#0b2d67', fontSize: '1.5rem' }}>Offer Letter Response</h1>
-        {loading && <p>Loading offer details…</p>}
-
-        {!loading && offer && (
-          <div style={{ fontSize: '0.95rem', lineHeight: 1.6 }}>
-            <p><strong>Employee Name:</strong> {offer.employeeName || '—'}</p>
-            <p><strong>Final Designation:</strong> {offer.designation || '—'}</p>
-            <p><strong>Department:</strong> {offer.department || '—'}</p>
-            <p><strong>Company:</strong> {offer.company || '—'}</p>
-            <p><strong>Salary / CTC:</strong> {offer.salary || '—'}</p>
-            <p><strong>Official Joining Date:</strong> {offer.joiningDate || '—'}</p>
-            {offer.employmentType ? <p><strong>Employment Type:</strong> {offer.employmentType}</p> : null}
-            {offer.workLocation ? <p><strong>Work Location:</strong> {offer.workLocation}</p> : null}
-            {offer.reportingManager ? <p><strong>Reporting Manager:</strong> {offer.reportingManager}</p> : null}
-            {offer.probationPeriod ? <p><strong>Probation Period:</strong> {offer.probationPeriod}</p> : null}
-            {offer.noticePeriod ? <p><strong>Notice Period:</strong> {offer.noticePeriod}</p> : null}
-            <p><strong>Offer Status:</strong> {offer.offerStatus || '—'}</p>
+    <div className="accept-offer-page">
+      <div className="accept-offer-shell">
+        <div className="accept-offer-brand">
+          <div className="accept-offer-brand-mark" aria-hidden>
+            UC
           </div>
-        )}
+          <div className="accept-offer-brand-text">Urbancode Edutech</div>
+        </div>
 
-        {error && (
-          <div style={{ color: '#b91c1c', marginTop: '1rem' }}>
-            <p style={{ margin: 0 }}>{error}</p>
-            {/invalid|unknown/i.test(error) && (
-              <p style={{ margin: '0.75rem 0 0', color: '#4b5563', fontSize: '0.9rem' }}>
-                This usually means the link is from an old email or the server was restarted.
-                Ask admin to <strong>Send Offer Letter</strong> again, then open only the newest link.
-                Accepting that link auto-approves registration and activates your login.
-              </p>
+        <div className="accept-offer-card">
+          <div className="accept-offer-card-head">
+            <p className="accept-offer-eyebrow">Employment offer</p>
+            <h1 className="accept-offer-title">
+              {alreadyAccepted
+                ? 'Offer accepted'
+                : alreadyDeclined
+                  ? 'Offer declined'
+                  : 'Offer letter response'}
+            </h1>
+            <p className="accept-offer-subtitle">{headSubtitle}</p>
+          </div>
+
+          <div className="accept-offer-body">
+            {loading && <p className="accept-offer-loading">Loading offer details…</p>}
+
+            {!loading && offer && (
+              <div className="accept-offer-details">
+                <DetailRow label="Employee name" value={offer.employeeName || '—'} />
+                <DetailRow label="Designation" value={offer.designation || '—'} />
+                <DetailRow label="Department" value={offer.department || '—'} />
+                <DetailRow label="Company" value={offer.company || '—'} />
+                <DetailRow label="Salary / CTC" value={formatSalary(offer.salary)} />
+                <DetailRow label="Joining date" value={formatJoiningDate(offer.joiningDate)} />
+                <DetailRow label="Employment type" value={offer.employmentType} />
+                <DetailRow label="Work location" value={offer.workLocation} />
+                <DetailRow label="Reporting manager" value={offer.reportingManager} />
+                <DetailRow label="Probation" value={offer.probationPeriod} />
+                <DetailRow label="Notice period" value={offer.noticePeriod} />
+                <div className="accept-offer-row">
+                  <p className="accept-offer-label">Offer status</p>
+                  <p className="accept-offer-value">
+                    <span className={`accept-offer-status ${statusClass(offerStatus)}`}>
+                      {offerStatus || '—'}
+                    </span>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <div className="accept-offer-error">
+                <p>{error}</p>
+                {/invalid|unknown|expired/i.test(error) && (
+                  <p className="accept-offer-error-hint">
+                    This usually means the link is from an old email. Ask admin to send the offer
+                    letter again, then open only the newest link.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {alreadyAccepted && (
+              <div className="accept-offer-banner is-ok">
+                <p className="accept-offer-banner-title">You&apos;re all set</p>
+                <p className="accept-offer-banner-text">
+                  Your employee account is active. Sign in with your registered email and password.
+                </p>
+              </div>
+            )}
+
+            {alreadyDeclined && (
+              <div className="accept-offer-banner is-bad">
+                <p className="accept-offer-banner-title">Offer declined</p>
+                <p className="accept-offer-banner-text">
+                  {done?.message ||
+                    'This offer was declined. Contact HR if you need a new offer.'}
+                </p>
+              </div>
+            )}
+
+            {!loading && !done && offer && !error && !alreadyAccepted && !alreadyDeclined && (
+              <div className="accept-offer-actions">
+                <button
+                  type="button"
+                  className="accept-offer-btn primary"
+                  disabled={busy}
+                  onClick={accept}
+                >
+                  {busy ? 'Please wait…' : 'Accept offer'}
+                </button>
+                <button
+                  type="button"
+                  className="accept-offer-btn danger"
+                  disabled={busy}
+                  onClick={decline}
+                >
+                  Decline offer
+                </button>
+              </div>
+            )}
+
+            {(alreadyAccepted || (!loading && !offer && error)) && (
+              <div className="accept-offer-actions">
+                <Link to="/login" className="accept-offer-btn primary">
+                  Go to login
+                </Link>
+              </div>
+            )}
+
+            {alreadyDeclined && (
+              <div className="accept-offer-actions">
+                <Link to="/login" className="accept-offer-btn ghost">
+                  Return to login
+                </Link>
+              </div>
             )}
           </div>
-        )}
+        </div>
 
-        {done && (
-          <div
-            style={{
-              marginTop: '1rem',
-              padding: '0.9rem',
-              borderRadius: 8,
-              background: done.type === 'accepted' ? '#ecfdf5' : '#fef2f2',
-              color: done.type === 'accepted' ? '#065f46' : '#991b1b',
-            }}
-          >
-            <p style={{ margin: 0 }}>{done.message}</p>
-            {done.type === 'accepted' && (
-              <p style={{ marginBottom: 0, marginTop: '0.75rem' }}>
-                You can now <Link to="/login">log in</Link> with your registered email and password.
-              </p>
-            )}
-          </div>
-        )}
-
-        {!loading && !done && offer && !error && (
-          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
-            <button type="button" style={btn('primary')} disabled={busy} onClick={accept}>
-              {busy ? 'Please wait…' : 'Accept Offer'}
-            </button>
-            <button type="button" style={btn('danger')} disabled={busy} onClick={decline}>
-              Decline Offer
-            </button>
-          </div>
-        )}
-
-        {!loading && !offer && error && (
-          <p style={{ marginTop: '1rem' }}>
-            <Link to="/login">Return to login</Link>
-          </p>
-        )}
+        <p className="accept-offer-footer">Urbancode Edutech Solutions Pvt. Ltd.</p>
       </div>
     </div>
   );

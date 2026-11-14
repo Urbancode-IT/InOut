@@ -531,6 +531,35 @@ const EditUser = ({ userId, onClose, onUpdated, pageMode = false }) => {
                 )}
               </div>
             </div>
+
+            <div className="uc-form-field" style={{ marginTop: '1rem' }}>
+              <label style={{ display: 'block', marginBottom: '0.35rem', fontWeight: 600 }}>Resume</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                {form.resume?.url ? (
+                  <>
+                    <span style={{ padding: '4px 12px', borderRadius: '12px', background: '#dcfce7', color: '#15803d', fontWeight: 600, fontSize: '0.8rem' }}>
+                      ✓ Uploaded
+                    </span>
+                    <a
+                      href={form.resume.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="uc-btn uc-btn-primary"
+                      style={{ textDecoration: 'none', padding: '6px 14px', fontSize: '0.85rem' }}
+                    >
+                      View / Download Resume
+                    </a>
+                    {form.resume.filename ? (
+                      <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{form.resume.filename}</span>
+                    ) : null}
+                  </>
+                ) : (
+                  <span style={{ padding: '4px 12px', borderRadius: '12px', background: '#fef3c7', color: '#b45309', fontWeight: 600, fontSize: '0.8rem' }}>
+                    Not Uploaded
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="uc-form-section">

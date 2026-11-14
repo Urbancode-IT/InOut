@@ -73,7 +73,7 @@ const LockedUsersPanel = ({ users = [], onUnlocked }) => {
               {lockedUsers.length > 0 ? (
                 <>
                   <p className="text-sm text-gray-600 mb-4">
-                    These employees cannot check in or check out. A missed day means no check-in, no check-out, and no leave form. Only an admin can unlock them.
+                    These employees cannot check in or check out. A missed day means no check-in, no check-out, and no leave form. Unlock them here, or they unlock automatically when leave is submitted for the locked day.
                   </p>
                   <div className="overflow-x-auto border border-gray-200 rounded-lg">
                     <table className="min-w-full divide-y divide-gray-200">

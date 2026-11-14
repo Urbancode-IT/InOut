@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { formatHoursStacked } from '../../../utils/workHours';
+import { formatHoursStacked, formatWorkHours, monthWorkedMs } from '../../../utils/workHours';
 import { localDateYMD } from '../../../utils/localDate';
 import { normalizeId } from '../../../utils/dashboardLogs';
 
@@ -71,6 +71,7 @@ const groupByEmployeeDay = (records = [], users = []) => {
         name: person.name,
         email: person.email,
         employeeId: person.employeeId,
+        userId: person.userId,
         dateKey,
         sortTs: new Date(record.timestamp).getTime(),
         checkIn: null,
@@ -81,6 +82,7 @@ const groupByEmployeeDay = (records = [], users = []) => {
     if (person.name && person.name !== 'Unknown') grouped[key].name = person.name;
     if (person.email) grouped[key].email = person.email;
     if (person.employeeId) grouped[key].employeeId = person.employeeId;
+    if (person.userId) grouped[key].userId = person.userId;
 
     const ts = new Date(record.timestamp).getTime();
     if (Number.isFinite(ts) && ts > grouped[key].sortTs) {
@@ -107,11 +109,39 @@ const groupByEmployeeDay = (records = [], users = []) => {
   return Object.values(grouped).sort((a, b) => b.sortTs - a.sortTs);
 };
 
-const AttendanceTable = ({ records = [], users = [] }) => {
+const personKey = (row) =>
+  normalizeId(row.userId) ||
+  String(row.employeeId || '').trim() ||
+  String(row.email || '').trim().toLowerCase() ||
+  String(row.name || '').trim().toLowerCase();
+
+const AttendanceTable = ({ records = [], users = [], allRecords = null }) => {
+  const sourceForMonth = allRecords || records;
+
   const rows = useMemo(
     () => groupByEmployeeDay(records, users),
     [records, users]
   );
+
+  const logsByPerson = useMemo(() => {
+    const byId = new Map(users.map((u) => [normalizeId(u._id), u]));
+    const byEmpId = new Map(
+      users
+        .filter((u) => u.employeeId)
+        .map((u) => [String(u.employeeId).trim(), u])
+    );
+    const map = new Map();
+
+    (sourceForMonth || []).forEach((record) => {
+      const person = resolvePerson(record, byId, byEmpId);
+      const key = personKey(person);
+      if (!key) return;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(record);
+    });
+
+    return map;
+  }, [sourceForMonth, users]);
 
   return (
     <div className="overflow-x-auto bg-white rounded shadow">
@@ -124,13 +154,14 @@ const AttendanceTable = ({ records = [], users = [] }) => {
             <th className="px-4 py-3">Check-In</th>
             <th className="px-4 py-3">Check-Out</th>
             <th className="px-4 py-3">Hours</th>
+            <th className="px-4 py-3">Month Hours</th>
             <th className="px-4 py-3">In Office</th>
           </tr>
         </thead>
         <tbody className="text-gray-800">
           {rows.length === 0 ? (
             <tr>
-              <td colSpan="7" className="px-4 py-6 text-center text-gray-500">
+              <td colSpan="8" className="px-4 py-6 text-center text-gray-500">
                 No attendance records found
               </td>
             </tr>
@@ -139,6 +170,14 @@ const AttendanceTable = ({ records = [], users = [] }) => {
               const hours = formatHoursStacked(
                 row.checkIn?.timestamp,
                 row.checkOut?.timestamp
+              );
+              const dayTs =
+                row.checkIn?.timestamp ||
+                row.checkOut?.timestamp ||
+                row.sortTs;
+              const personLogs = logsByPerson.get(personKey(row)) || [];
+              const monthHours = formatWorkHours(
+                monthWorkedMs(personLogs, dayTs ? new Date(dayTs) : new Date())
               );
               const inOffice =
                 row.checkIn?.isInOffice === true ||
@@ -171,6 +210,9 @@ const AttendanceTable = ({ records = [], users = [] }) => {
                   </td>
                   <td className="px-4 py-2 font-semibold">
                     {hours?.label || '—'}
+                  </td>
+                  <td className="px-4 py-2 font-semibold text-teal-700">
+                    {monthHours?.label || '—'}
                   </td>
                   <td className="px-4 py-2">
                     {inOffice ? (

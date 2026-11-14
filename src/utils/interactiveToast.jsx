@@ -15,13 +15,24 @@ export function alertToast({
   confirmText = 'OK',
   actionText,
   tone = 'primary',
+  variant = 'default',
 }) {
+  const isSchedule = variant === 'schedule';
   return new Promise((resolve) => {
     toast(
       ({ closeToast }) => (
-        <div className="ct-box">
+        <div className={`ct-box${isSchedule ? ' ct-box-schedule' : ''}`}>
+          {isSchedule ? (
+            <div className={`ct-schedule-badge ct-schedule-${tone}`}>
+              {tone === 'danger' ? 'Schedule notice' : 'Notice'}
+            </div>
+          ) : null}
           <p className="ct-title">{title}</p>
-          {text && <p className="ct-text" style={{ whiteSpace: 'pre-wrap' }}>{text}</p>}
+          {text && (
+            <p className="ct-text" style={{ whiteSpace: 'pre-wrap' }}>
+              {text}
+            </p>
+          )}
           <div className="ct-actions">
             {actionText ? (
               <button
@@ -42,7 +53,10 @@ export function alertToast({
           </div>
         </div>
       ),
-      TOAST_OPTS
+      {
+        ...TOAST_OPTS,
+        className: isSchedule ? 'ct-toast-schedule' : undefined,
+      }
     );
   });
 }

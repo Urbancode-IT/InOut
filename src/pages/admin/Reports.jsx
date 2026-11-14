@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { API_ENDPOINTS } from "../../utils/api";
 import { localDateYMD } from "../../utils/localDate";
+import { isForgotPunchLeaveType, isPersonalLeaveType } from "../../utils/leaveTypes";
 import { skipsAttendanceReports as isDirectorOrFounder } from "../../utils/skipAttendance";
 import { FiRefreshCw, FiHome as WFHIcon } from 'react-icons/fi';
 import jsPDF from "jspdf";
@@ -182,8 +183,45 @@ const getDayAttendance = (index, employeeDisplayName, resolvedUserId, dateKey) =
   return { checkIn: null, checkOut: null };
 };
 
+/** Coerce "09:00", "9:00", or ISO datetime → "HH:MM" for Scheduled column. */
+const normalizeScheduleTime = (value) => {
+  if (value == null || value === '') return '';
+  if (typeof value === 'string' && value.includes('T')) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      const hh = String(date.getHours()).padStart(2, '0');
+      const mm = String(date.getMinutes()).padStart(2, '0');
+      return `${hh}:${mm}`;
+    }
+  }
+  const raw = String(value).trim();
+  const match = raw.match(/^(\d{1,2}):(\d{2})/);
+  if (match) {
+    return `${String(Number(match[1])).padStart(2, '0')}:${match[2]}`;
+  }
+  return raw;
+};
+
+const defaultWeeklySchedule = () => ({
+  Monday: { start: '09:00', end: '17:00', isLeave: false },
+  Tuesday: { start: '09:00', end: '17:00', isLeave: false },
+  Wednesday: { start: '09:00', end: '17:00', isLeave: false },
+  Thursday: { start: '09:00', end: '17:00', isLeave: false },
+  Friday: { start: '09:00', end: '17:00', isLeave: false },
+  Saturday: { start: '09:00', end: '17:00', isLeave: false },
+  Sunday: { start: '', end: '', isLeave: true },
+});
+
 const normalizeWeeklySchedule = (ws) => {
-  if (!ws || typeof ws !== 'object') return {};
+  let source = ws;
+  if (typeof source === 'string') {
+    try {
+      source = JSON.parse(source);
+    } catch {
+      source = null;
+    }
+  }
+
   const dayMap = {
     sun: 'Sunday', sunday: 'Sunday',
     mon: 'Monday', monday: 'Monday',
@@ -193,21 +231,56 @@ const normalizeWeeklySchedule = (ws) => {
     fri: 'Friday', friday: 'Friday',
     sat: 'Saturday', saturday: 'Saturday',
   };
-  const out = {};
-  Object.entries(ws).forEach(([day, val]) => {
-    const lower = String(day).trim().toLowerCase();
-    const full = dayMap[lower] || (day.charAt(0).toUpperCase() + day.slice(1).toLowerCase());
-    if (WEEKDAYS.includes(full)) out[full] = val;
-  });
+
+  const out = { ...defaultWeeklySchedule() };
+
+  if (source && typeof source === 'object') {
+    Object.entries(source).forEach(([day, val]) => {
+      if (!val || typeof val !== 'object') return;
+      const lower = String(day).trim().toLowerCase();
+      const full =
+        dayMap[lower] ||
+        (day.charAt(0).toUpperCase() + day.slice(1).toLowerCase());
+      if (!WEEKDAYS.includes(full)) return;
+
+      const isLeave = Boolean(val.isLeave);
+      const start =
+        normalizeScheduleTime(val.start) ||
+        normalizeScheduleTime(val.startTime) ||
+        '';
+      const end =
+        normalizeScheduleTime(val.end) ||
+        normalizeScheduleTime(val.endTime) ||
+        '';
+
+      out[full] = {
+        start: start || (!isLeave ? '09:00' : ''),
+        end: end || (!isLeave ? '17:00' : ''),
+        isLeave,
+      };
+    });
+  }
+
   return out;
 };
 
+const scheduleUserIdOf = (sch) => {
+  if (!sch) return null;
+  const raw = sch.user?._id ?? sch.user?.id ?? sch.userId ?? sch.user;
+  return raw != null && raw !== '' ? String(raw) : null;
+};
+
 const findScheduleForEmployee = (employeeName, scheduleList, userId) => {
+  const list = Array.isArray(scheduleList) ? scheduleList : [];
+  if (userId) {
+    const uid = String(userId);
+    const byId = list.find((sch) => scheduleUserIdOf(sch) === uid);
+    if (byId) return byId;
+  }
   const key = normalizeName(employeeName);
   if (!key) return null;
-  return scheduleList.find((sch) => {
-    const schUserId = sch.user?._id || sch.user?.id || sch.userId;
-    if (userId && schUserId && String(schUserId) === String(userId)) return true;
+
+  const exact = list.find((sch) => {
     const names = [
       sch.user?.name,
       sch.name,
@@ -215,35 +288,69 @@ const findScheduleForEmployee = (employeeName, scheduleList, userId) => {
       [sch.user?.firstName, sch.user?.lastName].filter(Boolean).join(' '),
     ];
     return names.some((n) => normalizeName(n) === key);
-  }) || null;
+  });
+  if (exact) return exact;
+
+  // Partial name match (e.g. "Subhiksha" vs "Subhiksha R")
+  return (
+    list.find((sch) => {
+      const names = [
+        sch.user?.name,
+        sch.name,
+        sch.employeeName,
+        [sch.user?.firstName, sch.user?.lastName].filter(Boolean).join(' '),
+      ]
+        .map((n) => normalizeName(n))
+        .filter(Boolean);
+      return names.some(
+        (n) => n === key || n.startsWith(key) || key.startsWith(n) || n.includes(key) || key.includes(n)
+      );
+    }) || null
+  );
 };
 
 const resolveEmployeeContext = (employeeName, schedules, allUsers, logs) => {
   const safeLogs = Array.isArray(logs) ? logs.filter(Boolean) : [];
+  const safeUsers = Array.isArray(allUsers) ? allUsers : [];
+
   const sampleLog = safeLogs.find((l) => {
     const label = logEmployeeLabel(l);
     return normalizeName(label) === normalizeName(employeeName);
   });
   const userIdFromLog = logUserId(sampleLog);
-  const schedule = findScheduleForEmployee(employeeName, schedules, userIdFromLog);
-  const scheduleUserId =
-    schedule?.user?._id != null
-      ? String(schedule.user._id)
-      : schedule?.user?.id != null
-        ? String(schedule.user.id)
-        : null;
-  const resolvedUserId = userIdFromLog || scheduleUserId || null;
+
+  // Resolve user first (name / log id), then schedule by that user id —
+  // fixes Scheduled "— - —" when name on logs doesn't exactly match schedule.user.name
+  let user =
+    (userIdFromLog && safeUsers.find((u) => String(u._id) === String(userIdFromLog))) ||
+    safeUsers.find((u) => normalizeName(u.name) === normalizeName(employeeName)) ||
+    null;
+
+  let schedule = findScheduleForEmployee(
+    employeeName,
+    schedules,
+    user?._id || userIdFromLog
+  );
+
+  if (!schedule && user?._id) {
+    schedule = findScheduleForEmployee(user.name, schedules, user._id);
+  }
+
+  const scheduleUserId = scheduleUserIdOf(schedule);
+  const resolvedUserId =
+    (user?._id != null ? String(user._id) : null) ||
+    userIdFromLog ||
+    scheduleUserId ||
+    null;
+
+  if (!user && scheduleUserId) {
+    user = safeUsers.find((u) => String(u._id) === scheduleUserId) || null;
+  }
+  if (!user && schedule?.user && typeof schedule.user === 'object') {
+    user = schedule.user;
+  }
 
   const weeklySchedule = normalizeWeeklySchedule(schedule?.weeklySchedule);
-
-  let user = schedule?.user;
-  if (typeof user === 'string') {
-    user = allUsers.find((u) => String(u._id) === String(user));
-  }
-  if (!user) {
-    user = allUsers.find((u) => normalizeName(u.name) === normalizeName(employeeName))
-      || (resolvedUserId && allUsers.find((u) => String(u._id) === String(resolvedUserId)));
-  }
 
   const primary = getPrimaryWork(user || {});
   return {
@@ -256,22 +363,27 @@ const resolveEmployeeContext = (employeeName, schedules, allUsers, logs) => {
 };
 
 const isScheduledWorkDay = (dateObj, weeklySchedule, isHolidayDate) => {
-  // Sunday is office weekly off by default; Saturday is a working day
-  if (isHolidayDate || dateObj.getDay() === 0) return false;
-  if (dateObj.getDay() === 6) return true;
+  if (isHolidayDate) return false;
 
   const norm = normalizeWeeklySchedule(weeklySchedule);
-  const hasConfig = Object.keys(norm).length > 0;
-  if (!hasConfig) return true;
-
   const daySchedule = norm[getDayName(dateObj)];
-  if (daySchedule === undefined) return false;
-  return !daySchedule.isLeave;
+  // Prefer saved schedule (Full-Time and Part-Time day-off choices)
+  if (daySchedule && typeof daySchedule === 'object') {
+    return !daySchedule.isLeave;
+  }
+
+  // Legacy fallback when no day entry: Sunday off, other days working
+  if (dateObj.getDay() === 0) return false;
+  return true;
 };
 
-/** Sunday + schedule.isLeave = office weekly off (not personal leave). Saturday is a working day. */
-const isOfficeLeaveDay = (dateObj, scheduled) =>
-  dateObj.getDay() === 0 || (dateObj.getDay() !== 6 && !!scheduled?.isLeave);
+/** Uses schedule.isLeave when present; otherwise Sunday is the office weekly off. */
+const isOfficeLeaveDay = (dateObj, scheduled) => {
+  if (scheduled && typeof scheduled === 'object') {
+    return !!scheduled.isLeave;
+  }
+  return dateObj.getDay() === 0;
+};
 
 /** Active employee — same rule as All Users (not past / disabled). */
 const isActiveEmployee = (user) => {
@@ -381,9 +493,7 @@ const getDatesInMonth = (year, month) => {
   return dates;
 };
 
-const getDayName = (date) => {
-  return date.toLocaleDateString("en-US", { weekday: "long" });
-};
+const getDayName = (date) => WEEKDAYS[date.getDay()] || 'Sunday';
 
 const normalizeHolidayList = (data) => {
   if (Array.isArray(data)) return data;
@@ -489,7 +599,7 @@ const Report = () => {
     return holiday ? holiday.name : null;
   };
 
-  const getApprovedLeaveOnDate = (employeeName, dateObj) => {
+  const getApprovedRequestOnDate = (employeeName, dateObj) => {
     const key = localDateYMD(dateObj);
     const empKey = normalizeName(employeeName);
     return approvedLeaves.find((leave) => {
@@ -498,6 +608,18 @@ const Report = () => {
       if ((leave.status || '').toLowerCase() !== 'approved') return false;
       return eachDateInRange(leave.fromDate, leave.toDate).some((d) => localDateYMD(d) === key);
     });
+  };
+
+  /** Casual / Sick / Emergency only — Forgot Check-In/Out is Present, not Leave. */
+  const getApprovedLeaveOnDate = (employeeName, dateObj) => {
+    const leave = getApprovedRequestOnDate(employeeName, dateObj);
+    if (!leave || !isPersonalLeaveType(leave.leaveType)) return null;
+    return leave;
+  };
+
+  const hasForgotPunchOnDate = (employeeName, dateObj) => {
+    const leave = getApprovedRequestOnDate(employeeName, dateObj);
+    return Boolean(leave && isForgotPunchLeaveType(leave.leaveType));
   };
 
   const isOnApprovedLeave = (employeeName, dateObj) => !!getApprovedLeaveOnDate(employeeName, dateObj);
@@ -583,14 +705,16 @@ const Report = () => {
           : '';
 
         const approvedLeave = getApprovedLeaveOnDate(employee, dateObj);
+        const forgotPunch = hasForgotPunchOnDate(employee, dateObj);
 
         let status = '—';
         if (isHoliday(dateObj)) {
           status = getHolidayName(dateObj) || 'Holiday';
         } else if (approvedLeave) {
           status = `Leave (${approvedLeave.leaveType || 'Approved'})`;
-        } else if (checkIn) {
-          status = isPhysicalOfficePresent(checkIn.officeName) ? 'Present' : 'WFH';
+        } else if (forgotPunch || checkIn) {
+          status =
+            checkIn && !isPhysicalOfficePresent(checkIn.officeName) ? 'WFH' : 'Present';
         } else if (isOfficeLeaveDay(dateObj, scheduled)) {
           status = dateObj.getDay() === 0 ? 'Office Leave' : 'Leave';
         } else if (scheduled && !scheduled.isLeave) {
@@ -700,6 +824,9 @@ const Report = () => {
       else if (isOnApprovedLeave(employee, dateObj)) {
         leaveCount++;
       }
+      else if (hasForgotPunchOnDate(employee, dateObj)) {
+        presentCount++;
+      }
       else if (isOfficeLeaveDay(dateObj, scheduled)) {
         // Sunday / scheduled weekly off — not personal leave, not absent
       }
@@ -737,6 +864,7 @@ const Report = () => {
       else if (
         workDay &&
         !isOnApprovedLeave(employee, dateObj) &&
+        !hasForgotPunchOnDate(employee, dateObj) &&
         !scheduled?.isLeave
       ) {
         absentCount++;
@@ -853,7 +981,7 @@ const Report = () => {
               <Chip label={`${employees.length} Active${filterBranch !== 'All' ? ` · ${filterBranch}` : ''}`} color="success" size="small" variant="outlined" />
               <Chip label={`${holidays.length} Holidays`} color="secondary" size="small" variant="outlined" />
               <Chip
-                label={`${approvedLeaves.filter((l) => (l.status || '').toLowerCase() === 'approved' && new Date(l.fromDate).getFullYear() === year && new Date(l.fromDate).getMonth() === month).length} Approved Leaves`}
+                label={`${approvedLeaves.filter((l) => (l.status || '').toLowerCase() === 'approved' && isPersonalLeaveType(l.leaveType) && new Date(l.fromDate).getFullYear() === year && new Date(l.fromDate).getMonth() === month).length} Approved Leaves`}
                 color="info"
                 size="small"
                 variant="outlined"
@@ -1054,6 +1182,7 @@ const Report = () => {
                                   }
 
                                   const approvedLeave = getApprovedLeaveOnDate(employee, dateObj);
+                                  const forgotPunch = hasForgotPunchOnDate(employee, dateObj);
 
                                   let status = "—";
                                   let statusColor = "default";
@@ -1068,6 +1197,9 @@ const Report = () => {
                                   } else if (approvedLeave) {
                                     status = `Leave (${approvedLeave.leaveType || 'Approved'})`;
                                     statusColor = "info";
+                                  } else if (forgotPunch) {
+                                    status = "Present";
+                                    statusColor = "success";
                                   } else if (checkIn && checkOut) {
                                     isWFH = checkIn.officeName && !isPhysicalOfficePresent(checkIn.officeName);
 
@@ -1102,7 +1234,8 @@ const Report = () => {
                                   }
                                   else if (
                                     workDay &&
-                                    !isOnApprovedLeave(employee, dateObj)
+                                    !isOnApprovedLeave(employee, dateObj) &&
+                                    !forgotPunch
                                   ) {
                                     status = "Absent";
                                     statusColor = "error";
@@ -1168,9 +1301,11 @@ const Report = () => {
                                           ? (holidayName || 'Holiday')
                                           : approvedLeave
                                             ? `Leave (${approvedLeave.leaveType || 'Approved'})`
-                                            : isOfficeLeaveDay(dateObj, scheduled)
-                                              ? (dateObj.getDay() === 0 ? 'Office Leave' : 'Scheduled Leave')
-                                              : `${scheduled?.start || "—"} - ${scheduled?.end || "—"}`}
+                                            : forgotPunch
+                                              ? 'Present (Forgot punch)'
+                                              : isOfficeLeaveDay(dateObj, scheduled)
+                                                ? (dateObj.getDay() === 0 ? 'Office Leave' : 'Scheduled Leave')
+                                                : `${scheduled?.start || '09:00'} - ${scheduled?.end || '17:00'}`}
                                       </TableCell>
                                       <TableCell align="center">{workHours}</TableCell>
                                       <TableCell align="center">
