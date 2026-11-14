@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { API_ENDPOINTS } from '../../utils/api';
 import {
@@ -23,24 +24,20 @@ import { toast } from 'react-toastify';
 import { shrinkLetterheadPhoneIconOnAllPages } from '../../utils/letterheadFooter';
 import { sanitizeTextForStandardFonts } from '../../utils/pdfTextSanitizer';
 import { sendDocumentEmailApi } from '../../utils/sendEmail';
+import {
+  LETTER_OFFICE_ADDRESSES,
+  applyMappedFieldsToForm,
+  branchToWorkLocationKey,
+  mapEmployeeToLetterFields,
+} from '../../utils/mapEmployeeToLetterFields';
 
 const SIGN_OFF_GAP = 14;
 const MIN_PAGE_BOTTOM = 88;
 
+const OFFICE_ADDRESSES = LETTER_OFFICE_ADDRESSES;
 
-const OFFICE_ADDRESSES = {
-  'Chennai - Pallikaranai': '9/29, 5th Street, Kamakoti Nagar, Pallikaranai, Chennai - 600100',
-  'Chennai - Velachery': '52/159, Velachery Main Rd, next to GURU NANAK COLLEGE, near Phoenix Marketcity, Anna Garden, Velachery, Chennai, Tamil Nadu 600042',
-  Tirunelveli: 'Fab Sapphire Towers, No 29/5, 4th Floor, South Bypass Road, Tirunelveli - 627005',
-};
-
-const guessWorkLocationBranch = (address) => {
-  if (!address) return '';
-  if (/tirunelveli/i.test(address)) return 'Tirunelveli';
-  if (/velachery|velechery/i.test(address)) return 'Chennai - Velachery';
-  if (/chennai|pallikaranai/i.test(address)) return 'Chennai - Pallikaranai';
-  return 'Other';
-};
+const guessWorkLocationBranch = (address) =>
+  branchToWorkLocationKey(address) || (address ? 'Other' : '');
 
 const stripSignOffFromBody = (text) => {
   const lines = text.split('\n');
@@ -252,10 +249,20 @@ Failure to comply with these rules may result in **counselling, warnings, perfor
   },
 };
 
-const OfferLetters = () => {
+const OfferLetters = ({
+  embedded = false,
+  forcedTemplate = null,
+  externalCandidateId = null,
+  onboardingMode = false,
+  pendingRegistrationId = '',
+} = {}) => {
+  const [searchParams] = useSearchParams();
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState('');
+  const [offerMeta, setOfferMeta] = useState(null);
+  const [pdfOutdated, setPdfOutdated] = useState(false);
+  const [detailsDirtyAfterPdf, setDetailsDirtyAfterPdf] = useState(false);
   const [form, setForm] = useState({
     candidateName: '',
     designation: '',
@@ -272,17 +279,27 @@ const OfferLetters = () => {
     workLocation: '',
     workLocationBranch: '',
     noticePeriod: '',
+    reportingManager: '',
+    employmentType: 'Full-Time',
     founderName: 'Sivagaminathan',
     directorName: '',
     branchHeadName: '',
     signatoryTitle: 'Founder',
   });
-  const [letterTemplate, setLetterTemplate] = useState('Standard');
-  const [titleText, setTitleText] = useState(LETTER_TEMPLATES.Standard.title);
-  const [body, setBody] = useState(LETTER_TEMPLATES.Standard.body);
-  const [secondSheetTitle, setSecondSheetTitle] = useState('');
-  const [secondSheetSubtitle, setSecondSheetSubtitle] = useState('');
-  const [secondSheetBody, setSecondSheetBody] = useState('');
+  const initialPresetKey =
+    forcedTemplate && LETTER_TEMPLATES[forcedTemplate] ? forcedTemplate : 'Standard';
+  const [letterTemplate, setLetterTemplate] = useState(initialPresetKey);
+  const [titleText, setTitleText] = useState(LETTER_TEMPLATES[initialPresetKey].title);
+  const [body, setBody] = useState(LETTER_TEMPLATES[initialPresetKey].body);
+  const [secondSheetTitle, setSecondSheetTitle] = useState(
+    LETTER_TEMPLATES[initialPresetKey].secondSheetTitle || ''
+  );
+  const [secondSheetSubtitle, setSecondSheetSubtitle] = useState(
+    LETTER_TEMPLATES[initialPresetKey].secondSheetSubtitle || ''
+  );
+  const [secondSheetBody, setSecondSheetBody] = useState(
+    LETTER_TEMPLATES[initialPresetKey].secondSheetBody || ''
+  );
   const [pdfUrl, setPdfUrl] = useState(null);
   const [pdfBytesData, setPdfBytesData] = useState(null);
   const [generating, setGenerating] = useState(false);
@@ -297,8 +314,11 @@ const OfferLetters = () => {
         const res = await axios.get(API_ENDPOINTS.getUsers, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        const active = (res.data || []).filter(u => u.isActive && u.role === 'employee');
-        setCandidates(active);
+        let list = (res.data || []).filter((u) => u.role === 'employee');
+        if (!onboardingMode) {
+          list = list.filter((u) => u.isActive);
+        }
+        setCandidates(list);
       } catch (err) {
         console.error('Failed to fetch candidates', err);
       } finally {
@@ -306,33 +326,154 @@ const OfferLetters = () => {
       }
     };
     fetchCandidates();
-  }, []);
+  }, [onboardingMode]);
+
+  // Load saved offer details when onboarding
+  useEffect(() => {
+    if (!onboardingMode || !selected) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.get(API_ENDPOINTS.getOfferByUserId(selected), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (cancelled) return;
+        setOfferMeta(res.data?.offerLetter || null);
+        setPdfOutdated(res.data?.offerLetter?.pdfOutdated === true);
+        const d = res.data?.offerLetter?.details;
+        if (d && typeof d === 'object') {
+          setForm((prev) => ({
+            ...prev,
+            ...Object.fromEntries(
+              Object.keys(prev).map((k) => [k, d[k] != null && d[k] !== '' ? d[k] : prev[k]])
+            ),
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to load offer meta', err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [onboardingMode, selected]);
+
+  // Lock to hub-selected preset without altering template content
+  useEffect(() => {
+    if (!forcedTemplate || !LETTER_TEMPLATES[forcedTemplate]) return;
+    const preset = LETTER_TEMPLATES[forcedTemplate];
+    setLetterTemplate(forcedTemplate);
+    setTitleText(preset.title);
+    setBody(preset.body);
+    setSecondSheetTitle(preset.secondSheetTitle || '');
+    setSecondSheetSubtitle(preset.secondSheetSubtitle || '');
+    setSecondSheetBody(preset.secondSheetBody || '');
+  }, [forcedTemplate]);
+
+  // Sync employee from centralized hub
+  useEffect(() => {
+    if (!embedded) return;
+    setSelected(externalCandidateId || '');
+  }, [externalCandidateId, embedded]);
+
+  // Prefill from All Letters → Edit
+  useEffect(() => {
+    if (embedded) return;
+    const userId = searchParams.get('userId');
+    const candidateName = searchParams.get('candidateName');
+    const email = searchParams.get('email');
+    if (userId) setSelected(userId);
+    if (candidateName || email) {
+      setForm((prev) => ({
+        ...prev,
+        ...(candidateName ? { candidateName } : {}),
+        ...(email ? { email } : {}),
+      }));
+    }
+  }, [searchParams, embedded]);
 
   useEffect(() => {
     if (!selected) return;
-    const cand = candidates.find(c => c._id === selected);
-    if (cand) {
-      setForm(prev => ({
-        ...prev,
-        candidateName: cand.name || '',
-        designation: cand.position || '',
-        department: cand.department || '',
-        company: cand.company || '',
-        salary: cand.salary || '',
-        addressLine1: cand.addressLine1 || cand.address?.line1 || cand.address?.addressLine1 || cand.location || '',
-        addressLine2: cand.addressLine2 || cand.address?.line2 || cand.address?.addressLine2 || cand.city || '',
-        joiningDate: cand.dateOfJoining ? cand.dateOfJoining.slice(0, 10) : '',
-        email: cand.email || '',
-        probationPeriod: cand.probationPeriod || '',
-        workingHours: cand.workingHours || '',
-        workLocation: cand.workLocation || '',
-        workLocationBranch: guessWorkLocationBranch(cand.workLocation),
-        noticePeriod: cand.noticePeriod || '',
-      }));
-    }
+    let cancelled = false;
+    (async () => {
+      let cand = candidates.find((c) => c._id === selected) || null;
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.get(API_ENDPOINTS.getUserById(selected), {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const full = res.data?.user || res.data;
+        if (full && typeof full === 'object') cand = full;
+      } catch {
+        /* list item fallback */
+      }
+      if (cancelled || !cand) return;
+      const mapped = mapEmployeeToLetterFields(cand);
+      setForm((prev) => {
+        const next = applyMappedFieldsToForm(prev, mapped);
+        // Ensure work location branch + address stay in sync for the select
+        if (mapped.workLocationBranch && mapped.workLocationBranch !== 'Other') {
+          next.workLocationBranch = mapped.workLocationBranch;
+          next.workLocation =
+            mapped.workLocation ||
+            OFFICE_ADDRESSES[mapped.workLocationBranch] ||
+            next.workLocation;
+        } else if (mapped.workLocation) {
+          next.workLocation = mapped.workLocation;
+          next.workLocationBranch =
+            guessWorkLocationBranch(mapped.workLocation) || 'Other';
+        }
+        return next;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [selected, candidates]);
 
-  const handleChange = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
+  const handleChange = (key, value) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+    if (onboardingMode && (pdfBytesData || offerMeta?.pdfVersion > 0)) {
+      setDetailsDirtyAfterPdf(true);
+      setPdfOutdated(true);
+    }
+  };
+
+  const buildOfferDetailsPayload = () => ({
+    candidateName: form.candidateName,
+    email: form.email,
+    phone: form.phone || '',
+    addressLine1: form.addressLine1,
+    addressLine2: form.addressLine2,
+    designation: form.designation,
+    department: form.department,
+    company: form.company,
+    salary: form.salary,
+    joiningDate: form.joiningDate,
+    offerDate: form.offerDate,
+    probationPeriod: form.probationPeriod,
+    noticePeriod: form.noticePeriod,
+    workingHours: form.workingHours,
+    workLocation: form.workLocation,
+    workLocationBranch: form.workLocationBranch,
+    reportingManager: form.reportingManager,
+    employmentType: form.employmentType,
+    letterTemplate: letterTemplate || 'Standard',
+  });
+
+  const persistOfferDetails = async () => {
+    if (!onboardingMode || !selected) return;
+    const token = localStorage.getItem('token');
+    const res = await axios.put(
+      API_ENDPOINTS.saveOfferDetails(selected),
+      { details: buildOfferDetailsPayload() },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    setOfferMeta(res.data?.offerLetter || null);
+    setPdfOutdated(res.data?.pdfOutdated === true || res.data?.offerLetter?.pdfOutdated === true);
+    return res.data;
+  };
 
   const handleSignatureUpload = (e) => {
     const file = e.target.files && e.target.files[0];
@@ -830,6 +971,50 @@ const OfferLetters = () => {
       setPdfBytesData(pdfBytes);
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       setPdfUrl(URL.createObjectURL(blob));
+
+      // Onboarding: save details, upload to All Letters, record generation metadata
+      if (onboardingMode && selected) {
+        try {
+          await persistOfferDetails();
+          const { uploadLetterBytes } = await import('../../utils/uploadLetter');
+          const uploadRes = await uploadLetterBytes(
+            pdfBytes,
+            `${titleText || 'Offer Letter'}.pdf`,
+            {
+              candidateId: selected,
+              candidateName: form.candidateName || '',
+              letterName: titleText || 'Offer Letter',
+              letterType: 'offer',
+            }
+          );
+          const pdfUrl =
+            uploadRes?.url ||
+            uploadRes?.letter?.url ||
+            uploadRes?.letterCopy?.url ||
+            '';
+          const token = localStorage.getItem('token');
+          const rec = await axios.post(
+            API_ENDPOINTS.recordOfferGenerated(selected),
+            {
+              pdfUrl,
+              pdfFilename: `${titleText || 'Offer Letter'}.pdf`,
+              details: buildOfferDetailsPayload(),
+            },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          setOfferMeta(rec.data?.offerLetter || null);
+          setPdfOutdated(false);
+          setDetailsDirtyAfterPdf(false);
+          toast.success('Offer Letter generated and saved to All Letters');
+        } catch (persistErr) {
+          console.error('Offer generate persist failed', persistErr);
+          toast.warning(
+            persistErr.response?.data?.error ||
+              'PDF preview ready, but saving offer metadata failed. You can retry Generate.'
+          );
+        }
+      }
+
       return pdfBytes;
     } catch (err) {
       console.error('PDF generation error', err);
@@ -841,12 +1026,64 @@ const OfferLetters = () => {
   };
 
   const [sendingMail, setSendingMail] = useState(false);
+  const [activatingOffer, setActivatingOffer] = useState(false);
 
   const handleSendMail = async () => {
     if (!form.email || !form.email.trim()) {
       toast.warning('Please enter a recipient email ID.');
       return;
     }
+
+    if (onboardingMode) {
+      if (!selected) {
+        toast.warning('No employee linked for this offer.');
+        return;
+      }
+      if (!pdfBytesData || !pdfUrl) {
+        toast.warning('Generate and preview the Offer Letter PDF before sending.');
+        return;
+      }
+      if (pdfOutdated || detailsDirtyAfterPdf) {
+        toast.warning(
+          'Offer details changed after the last PDF. Regenerate the Offer Letter before sending.'
+        );
+        return;
+      }
+      const confirmed = window.confirm(
+        `Send the latest Offer Letter PDF to ${form.email.trim()} with a secure Accept Offer link?\n\nConfirm you have reviewed the preview.`
+      );
+      if (!confirmed) return;
+
+      setSendingMail(true);
+      try {
+        await persistOfferDetails();
+        const { uint8ArrayToBase64 } = await import('../../utils/sendEmail');
+        const token = localStorage.getItem('token');
+        const companyName = form.company || 'Urbancode Edutech Solutions Pvt. Ltd.';
+        await axios.post(
+          API_ENDPOINTS.sendOfferLetter(selected),
+          {
+            pdfBase64: uint8ArrayToBase64(pdfBytesData),
+            filename: `${form.candidateName || 'offer-letter'}.pdf`,
+            subject: `Your Official Offer Letter – ${companyName}`,
+          },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        toast.success(`Offer Letter sent successfully to ${form.email.trim()}`);
+        setOfferMeta((prev) => ({
+          ...(prev || {}),
+          status: 'Sent',
+          sentAt: new Date().toISOString(),
+        }));
+      } catch (err) {
+        console.error('Failed to send onboarding offer:', err);
+        toast.error(err.response?.data?.error || err.message || 'Failed to send email');
+      } finally {
+        setSendingMail(false);
+      }
+      return;
+    }
+
     setSendingMail(true);
     try {
       let bytes = pdfBytesData;
@@ -873,6 +1110,42 @@ const OfferLetters = () => {
     }
   };
 
+  const handleAcceptAndActivate = async () => {
+    if (!onboardingMode || !selected) {
+      toast.warning('No employee linked for this offer.');
+      return;
+    }
+    if (offerMeta?.status === 'Accepted') {
+      toast.info('Offer already accepted — employee is active.');
+      return;
+    }
+    const confirmed = window.confirm(
+      `Accept this offer and activate login for ${form.candidateName || form.email || 'this employee'}?\n\nThis will approve the registration and make them an active user (no email link needed).`
+    );
+    if (!confirmed) return;
+
+    setActivatingOffer(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.post(
+        API_ENDPOINTS.acceptOfferAsAdmin(selected),
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success(res.data?.message || 'Offer accepted — employee is now active.');
+      setOfferMeta((prev) => ({
+        ...(prev || {}),
+        status: 'Accepted',
+        acceptedAt: new Date().toISOString(),
+      }));
+    } catch (err) {
+      console.error('Accept & Activate failed:', err);
+      toast.error(err.response?.data?.error || err.message || 'Failed to accept and activate');
+    } finally {
+      setActivatingOffer(false);
+    }
+  };
+
   const printPdf = () => {
     if (!pdfUrl) return;
     const win = window.open(pdfUrl, '_blank');
@@ -890,7 +1163,16 @@ const OfferLetters = () => {
       try {
         if (pdfBytesData) {
           const { uploadLetterBytes } = await import('../../utils/uploadLetter');
-          await uploadLetterBytes(pdfBytesData, `${form.candidateName || 'offer-letter'}.pdf`, selected || undefined);
+          await uploadLetterBytes(
+            pdfBytesData,
+            `${titleText || 'Offer Letter'}.pdf`,
+            {
+              candidateId: selected || undefined,
+              candidateName: form.candidateName || '',
+              letterName: titleText || 'Offer Letter',
+              letterType: 'offer',
+            }
+          );
           toast.success('Saved: Letter uploaded to cloud');
         }
       } catch (err) {
@@ -907,42 +1189,48 @@ const OfferLetters = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Typography variant="h5" sx={{ mb: 2 }}>Offer Letters</Typography>
+    <Container maxWidth="lg" sx={{ py: embedded ? 0 : 4 }} disableGutters={embedded}>
+      {!embedded && (
+        <Typography variant="h5" sx={{ mb: 2 }}>Offer Letters</Typography>
+      )}
 
       {loading ? (
         <CircularProgress />
       ) : (
-        <Box sx={{ display: 'flex', gap: 4 }}>
+        <Box sx={{ display: 'flex', gap: 4, flexDirection: { xs: 'column', md: 'row' } }}>
           <Box sx={{ flex: 1 }}>
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel id="candidate-label">Candidate</InputLabel>
-              <Select
-                labelId="candidate-label"
-                value={selected}
-                label="Candidate"
-                onChange={(e) => setSelected(e.target.value)}
-              >
-                <MenuItem value="">-- Select --</MenuItem>
-                {candidates.map(c => (
-                  <MenuItem key={c._id} value={c._id}>{c.name} — {c.position}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            {!embedded && (
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel id="candidate-label">Candidate</InputLabel>
+                <Select
+                  labelId="candidate-label"
+                  value={selected}
+                  label="Candidate"
+                  onChange={(e) => setSelected(e.target.value)}
+                >
+                  <MenuItem value="">-- Select --</MenuItem>
+                  {candidates.map(c => (
+                    <MenuItem key={c._id} value={c._id}>{c.name} — {c.position}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
 
             <TextField label="Name" fullWidth sx={{ mb: 2 }} value={form.candidateName} onChange={(e) => handleChange('candidateName', e.target.value)} />
             <TextField label="Recipient Email ID" type="email" fullWidth sx={{ mb: 2 }} value={form.email} onChange={(e) => handleChange('email', e.target.value)} placeholder="Enter candidate email address" />
             <TextField label="Offer Date" type="date" fullWidth sx={{ mb: 2 }} value={form.offerDate} onChange={(e) => handleChange('offerDate', e.target.value)} InputLabelProps={{ shrink: true }} />
             <TextField label="Address Line 1" fullWidth sx={{ mb: 2 }} value={form.addressLine1} onChange={(e) => handleChange('addressLine1', e.target.value)} />
             <TextField label="Address Line 2" fullWidth sx={{ mb: 2 }} value={form.addressLine2} onChange={(e) => handleChange('addressLine2', e.target.value)} />
-            <TextField label="Designation" fullWidth sx={{ mb: 2 }} value={form.designation} onChange={(e) => handleChange('designation', e.target.value)} />
+            <TextField label="Final Designation" fullWidth sx={{ mb: 2 }} value={form.designation} onChange={(e) => handleChange('designation', e.target.value)} />
             <TextField label="Department" fullWidth sx={{ mb: 2 }} value={form.department} onChange={(e) => handleChange('department', e.target.value)} />
             <TextField label="Company" fullWidth sx={{ mb: 2 }} value={form.company} onChange={(e) => handleChange('company', e.target.value)} />
-            <TextField label="Salary" fullWidth sx={{ mb: 2 }} value={form.salary} onChange={(e) => handleChange('salary', e.target.value)} />
-            <TextField label="Joining Date" type="date" fullWidth sx={{ mb: 2 }} value={form.joiningDate} onChange={(e) => handleChange('joiningDate', e.target.value)} InputLabelProps={{ shrink: true }} />
+            <TextField label="Salary / CTC" fullWidth sx={{ mb: 2 }} value={form.salary} onChange={(e) => handleChange('salary', e.target.value)} />
+            <TextField label="Official Joining Date" type="date" fullWidth sx={{ mb: 2 }} value={form.joiningDate} onChange={(e) => handleChange('joiningDate', e.target.value)} InputLabelProps={{ shrink: true }} />
+            <TextField label="Employment Type" fullWidth sx={{ mb: 2 }} value={form.employmentType} onChange={(e) => handleChange('employmentType', e.target.value)} placeholder="Full-Time / Part-Time / Contract" />
+            <TextField label="Reporting Manager" fullWidth sx={{ mb: 2 }} value={form.reportingManager} onChange={(e) => handleChange('reportingManager', e.target.value)} />
 
-            <TextField label="Probation Period (months)" fullWidth sx={{ mb: 2 }} value={form.probationPeriod} onChange={(e) => handleChange('probationPeriod', e.target.value)} />
-            <TextField label="Working Hours" fullWidth sx={{ mb: 2 }} value={form.workingHours} onChange={(e) => handleChange('workingHours', e.target.value)} />
+            <TextField label="Probation Period (months)" fullWidth sx={{ mb: 2 }} value={form.probationPeriod} onChange={(e) => handleChange('probationPeriod', e.target.value)} helperText={onboardingMode ? 'Stored with offer; Standard template body does not print this unless you add {{probationPeriod}}.' : undefined} />
+            <TextField label="Working Hours" fullWidth sx={{ mb: 2 }} value={form.workingHours} onChange={(e) => handleChange('workingHours', e.target.value)} helperText={onboardingMode ? 'Stored with offer; Standard template body does not print this unless you add {{workingHours}}.' : undefined} />
             <FormControl fullWidth sx={{ mb: 2 }}>
               <InputLabel id="work-location-branch-label">Work Location</InputLabel>
               <Select
@@ -951,11 +1239,15 @@ const OfferLetters = () => {
                 label="Work Location"
                 onChange={(e) => {
                   const branch = e.target.value;
-                  setForm(prev => ({
+                  setForm((prev) => ({
                     ...prev,
                     workLocationBranch: branch,
                     workLocation: OFFICE_ADDRESSES[branch] || (branch === 'Other' ? '' : prev.workLocation),
                   }));
+                  if (onboardingMode && (pdfBytesData || offerMeta?.pdfVersion > 0)) {
+                    setDetailsDirtyAfterPdf(true);
+                    setPdfOutdated(true);
+                  }
                 }}
               >
                 <MenuItem value="Chennai - Pallikaranai">Chennai - Pallikaranai</MenuItem>
@@ -967,7 +1259,18 @@ const OfferLetters = () => {
             {form.workLocationBranch === 'Other' && (
               <TextField label="Work Location (custom)" fullWidth sx={{ mb: 2 }} value={form.workLocation} onChange={(e) => handleChange('workLocation', e.target.value)} />
             )}
-            <TextField label="Notice Period (days)" fullWidth sx={{ mb: 2 }} value={form.noticePeriod} onChange={(e) => handleChange('noticePeriod', e.target.value)} />
+            <TextField label="Notice Period (days)" fullWidth sx={{ mb: 2 }} value={form.noticePeriod} onChange={(e) => handleChange('noticePeriod', e.target.value)} helperText={onboardingMode ? 'Stored with offer; Standard template body does not print this unless you add {{noticePeriod}}.' : undefined} />
+
+            {onboardingMode && (
+              <Box sx={{ mb: 2, p: 1.5, bgcolor: '#f8fafc', borderRadius: 1, border: '1px solid #e2e8f0' }}>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Registration: {pendingRegistrationId || 'linked'} · Offer status:{' '}
+                  {offerMeta?.status || 'Not Generated'}
+                  {offerMeta?.pdfVersion ? ` · PDF v${offerMeta.pdfVersion}` : ''}
+                  {(pdfOutdated || detailsDirtyAfterPdf) ? ' · PDF outdated — regenerate before send' : ''}
+                </Typography>
+              </Box>
+            )}
 
             <TextField
               label="Founder Name"
@@ -1007,28 +1310,30 @@ const OfferLetters = () => {
               </Select>
             </FormControl>
 
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel id="letter-template-label">Letter Template</InputLabel>
-              <Select
-                labelId="letter-template-label"
-                value={letterTemplate}
-                label="Letter Template"
-                onChange={(e) => {
-                  const key = e.target.value;
-                  const preset = LETTER_TEMPLATES[key];
-                  setLetterTemplate(key);
-                  setTitleText(preset.title);
-                  setBody(preset.body);
-                  setSecondSheetTitle(preset.secondSheetTitle || '');
-                  setSecondSheetSubtitle(preset.secondSheetSubtitle || '');
-                  setSecondSheetBody(preset.secondSheetBody || '');
-                }}
-              >
-                <MenuItem value="Standard">Standard (any role)</MenuItem>
-                <MenuItem value="Employment">Employment Offer Letter (Edutech wording)</MenuItem>
-                <MenuItem value="Consultant">Consultant Offer Letter</MenuItem>
-              </Select>
-            </FormControl>
+            {!forcedTemplate && (
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel id="letter-template-label">Letter Template</InputLabel>
+                <Select
+                  labelId="letter-template-label"
+                  value={letterTemplate}
+                  label="Letter Template"
+                  onChange={(e) => {
+                    const key = e.target.value;
+                    const preset = LETTER_TEMPLATES[key];
+                    setLetterTemplate(key);
+                    setTitleText(preset.title);
+                    setBody(preset.body);
+                    setSecondSheetTitle(preset.secondSheetTitle || '');
+                    setSecondSheetSubtitle(preset.secondSheetSubtitle || '');
+                    setSecondSheetBody(preset.secondSheetBody || '');
+                  }}
+                >
+                  <MenuItem value="Standard">Standard (any role)</MenuItem>
+                  <MenuItem value="Employment">Employment Offer Letter (Edutech wording)</MenuItem>
+                  <MenuItem value="Consultant">Consultant Offer Letter</MenuItem>
+                </Select>
+              </FormControl>
+            )}
 
             <TextField
               label="Title"
@@ -1087,12 +1392,63 @@ const OfferLetters = () => {
             </Box>
 
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-              <Button variant="contained" onClick={generatePdf} disabled={generating}>{generating ? 'Generating...' : 'Generate Preview'}</Button>
+              <Button
+                variant="contained"
+                onClick={async () => {
+                  if (onboardingMode) {
+                    if (!form.candidateName?.trim() || !form.email?.trim() || !form.designation?.trim() || !form.joiningDate) {
+                      toast.warning('Name, email, designation, and joining date are required before generating.');
+                      return;
+                    }
+                  }
+                  await generatePdf();
+                }}
+                disabled={generating}
+              >
+                {generating
+                  ? 'Generating...'
+                  : onboardingMode
+                    ? 'Generate Offer Letter'
+                    : 'Generate Preview'}
+              </Button>
               <Button variant="outlined" onClick={downloadPdf} disabled={!pdfUrl}>Download PDF</Button>
               <Button variant="outlined" onClick={printPdf} disabled={!pdfUrl}>Print</Button>
-              <Button variant="contained" color="secondary" onClick={handleSendMail} disabled={sendingMail} sx={{ backgroundColor: '#0b2d67', '&:hover': { backgroundColor: '#071d44' } }}>
-                {sendingMail ? 'Sending...' : 'Send Mail'}
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={handleSendMail}
+                disabled={
+                  sendingMail ||
+                  activatingOffer ||
+                  (onboardingMode && (!pdfUrl || pdfOutdated || detailsDirtyAfterPdf))
+                }
+                sx={{ backgroundColor: '#0b2d67', '&:hover': { backgroundColor: '#071d44' } }}
+              >
+                {sendingMail
+                  ? 'Sending...'
+                  : onboardingMode
+                    ? 'Send Offer Letter'
+                    : 'Send Mail'}
               </Button>
+              {onboardingMode && (
+                <Button
+                  variant="contained"
+                  color="success"
+                  onClick={handleAcceptAndActivate}
+                  disabled={
+                    activatingOffer ||
+                    sendingMail ||
+                    !selected ||
+                    offerMeta?.status === 'Accepted'
+                  }
+                >
+                  {activatingOffer
+                    ? 'Activating...'
+                    : offerMeta?.status === 'Accepted'
+                      ? 'Already Active'
+                      : 'Accept & Activate'}
+                </Button>
+              )}
             </Box>
 
             {selected && (candidates.find(c => c._id === selected)?.letterCopies || []).length > 0 && (

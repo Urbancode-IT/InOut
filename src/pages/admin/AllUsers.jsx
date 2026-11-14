@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { confirmToast } from '../../utils/interactiveToast';
-import { FiMoreVertical, FiUserPlus } from 'react-icons/fi';
+import { FiLink, FiMoreVertical, FiUserPlus } from 'react-icons/fi';
 import { API_ENDPOINTS } from '../../utils/api';
 // UserCard is used on the dedicated user detail page now
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -204,6 +204,29 @@ const AllUsers = () => {
     }
   };
 
+  const handleCopyRegisterLink = async () => {
+    const registrationUrl = `${window.location.origin}/register`;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(registrationUrl);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = registrationUrl;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      toast.success('Registration link copied successfully!');
+    } catch (err) {
+      console.error('Failed to copy registration link:', err);
+      toast.error('Could not copy registration link.');
+    }
+  };
+
   const isPastEmployee = (user) => !user.isActive || !!user.dateOfRelieving;
 
   const matchesPastSearch = (user) => {
@@ -280,17 +303,30 @@ const AllUsers = () => {
     <div className="uc-users-wrap">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
         <h1 className="uc-page-title" style={{ margin: 0 }}>All Users</h1>
-        <button
-          type="button"
-          className="uc-btn uc-btn-primary"
-          onClick={() => navigate('/add-user')}
-          title="Add User"
-          aria-label="Add User"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
-        >
-          <FiUserPlus size={16} strokeWidth={2.5} />
-          Add User
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="uc-btn uc-btn-outline"
+            onClick={handleCopyRegisterLink}
+            title="Register Link"
+            aria-label="Register Link"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <FiLink size={16} strokeWidth={2.5} />
+            Register Link
+          </button>
+          <button
+            type="button"
+            className="uc-btn uc-btn-primary"
+            onClick={() => navigate('/add-user')}
+            title="Add User"
+            aria-label="Add User"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <FiUserPlus size={16} strokeWidth={2.5} />
+            Add User
+          </button>
+        </div>
       </div>
 
       <div className="uc-users-stats">
@@ -428,7 +464,11 @@ const AllUsers = () => {
                 </td>
                 <td className="uc-users-status-cell">
                   <span className={`uc-status-badge${user.isActive ? ' is-active' : ' is-inactive'}`}>
-                    {user.isActive ? 'Active' : 'Inactive'}
+                    {user.isActive
+                      ? (user.activationStatus === 'Active' || !user.activationStatus ? 'Active' : user.activationStatus)
+                      : (user.activationStatus === 'Pending Activation' || user.offerLetter?.status
+                        ? 'Pending Activation'
+                        : 'Inactive')}
                   </span>
                   {isAttendanceLockedUser(user) && (
                     <span className="uc-status-badge is-locked" title={attendanceLockReasonLabel(user)}>

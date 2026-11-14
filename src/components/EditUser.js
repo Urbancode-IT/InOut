@@ -3,6 +3,11 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { FiUser, FiMail, FiLock, FiCalendar, FiChevronDown } from 'react-icons/fi';
 import { API_ENDPOINTS } from '../utils/api';
+import {
+  EMPLOYMENT_TYPE_OPTIONS,
+  createDefaultWeeklySchedule,
+  normalizeEmploymentType,
+} from '../utils/registrationConstants';
 
 function EditUser() {
   const [users, setUsers] = useState([]);
@@ -11,18 +16,11 @@ function EditUser() {
     name: '',
     email: '',
     password: '',
-    dateOfBirth: ''
+    dateOfBirth: '',
+    employmentType: 'Full-Time',
   });
   
-  const [weeklySchedule, setWeeklySchedule] = useState({
-    Monday: { start: '09:00', end: '17:00', isLeave: false },
-    Tuesday: { start: '09:00', end: '17:00', isLeave: false },
-    Wednesday: { start: '09:00', end: '17:00', isLeave: false },
-    Thursday: { start: '09:00', end: '17:00', isLeave: false },
-    Friday: { start: '09:00', end: '17:00', isLeave: false },
-    Saturday: { start: '09:00', end: '17:00', isLeave: false },
-    Sunday: { start: '', end: '', isLeave: true }
-  });
+  const [weeklySchedule, setWeeklySchedule] = useState(createDefaultWeeklySchedule('Full-Time'));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -70,27 +68,23 @@ function EditUser() {
             (s) => String(s.user?._id || s.user) === String(selectedUserId)
           );
           
+          const employmentType = normalizeEmploymentType(
+            scheduleData?.employmentType || userData.employmentType
+          );
+
           // Update state
           setFormData({
             name: userData.name,
             email: userData.email,
             password: '', // Don't pre-fill password for security
-            dateOfBirth: userData.dateOfBirth ? userData.dateOfBirth.split('T')[0] : ''
+            dateOfBirth: userData.dateOfBirth ? userData.dateOfBirth.split('T')[0] : '',
+            employmentType,
           });
           
-          if (scheduleData) {
+          if (scheduleData?.weeklySchedule) {
             setWeeklySchedule(scheduleData.weeklySchedule);
           } else {
-            // Set default schedule if none exists
-            setWeeklySchedule({
-              Monday: { start: '09:00', end: '17:00', isLeave: false },
-              Tuesday: { start: '09:00', end: '17:00', isLeave: false },
-              Wednesday: { start: '09:00', end: '17:00', isLeave: false },
-              Thursday: { start: '09:00', end: '17:00', isLeave: false },
-              Friday: { start: '09:00', end: '17:00', isLeave: false },
-              Saturday: { start: '09:00', end: '17:00', isLeave: false },
-              Sunday: { start: '', end: '', isLeave: true }
-            });
+            setWeeklySchedule(createDefaultWeeklySchedule(employmentType));
           }
           
           setIsLoading(false);
@@ -106,6 +100,11 @@ function EditUser() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    if (name === 'employmentType') {
+      const employmentType = normalizeEmploymentType(value);
+      setFormData((prev) => ({ ...prev, employmentType }));
+      return;
+    }
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
@@ -133,6 +132,7 @@ function EditUser() {
         name: formData.name,
         email: formData.email,
         ...(formData.password && { password: formData.password }),
+        employmentType: normalizeEmploymentType(formData.employmentType),
         schedule: weeklySchedule,
         dateOfBirth: formData.dateOfBirth || undefined
       };
@@ -314,6 +314,28 @@ function EditUser() {
                     <div className="flex items-center mb-4">
                       <FiCalendar className="h-5 w-5 text-gray-500 mr-2" />
                       <h3 className="text-lg font-medium text-gray-900">Weekly Schedule</h3>
+                    </div>
+
+                    <div className="mb-4">
+                      <label htmlFor="employmentType" className="block text-sm font-medium text-gray-700 mb-1">
+                        Employment Type
+                      </label>
+                      <select
+                        id="employmentType"
+                        name="employmentType"
+                        value={normalizeEmploymentType(formData.employmentType)}
+                        onChange={handleChange}
+                        className="block w-full border border-gray-300 rounded-md py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        {EMPLOYMENT_TYPE_OPTIONS.map((type) => (
+                          <option key={type} value={type}>{type}</option>
+                        ))}
+                      </select>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {normalizeEmploymentType(formData.employmentType) === 'Part-Time'
+                          ? 'Part-time: set flexible working days and shorter shifts as needed.'
+                          : 'Full-time: keep the standard weekly schedule and adjust days/hours as needed.'}
+                      </p>
                     </div>
 
                     <div className="space-y-4">

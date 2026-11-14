@@ -41,10 +41,12 @@ import InternshipLetter from './pages/admin/InternshipLetter';
 import InternshipOfferLetter from './pages/admin/InternshipOfferLetter';
 import AllLetters from './pages/admin/AllLetters';
 import UploadDocuments from './pages/admin/UploadDocuments';
+import LetterGenerator from './pages/admin/letter-generator/LetterGenerator';
 import AdminProtectedRoute from './components/AdminProtectedRoute';
 import ProtectedRoute from './components/ProtectedRoute';
 import PendingUsers from './pages/admin/PendingUsers';
-import ApiDocsPage from './pages/admin/ApiDocsPage';
+import AdminProfile from './pages/admin/AdminProfile';
+import AcceptOffer from './pages/AcceptOffer';
 
 function App() {
   //  const navigate = useNavigate();
@@ -78,13 +80,12 @@ function App() {
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/accept-offer/:token" element={<AcceptOffer />} />
         <Route path="/attendance" element={<ProtectedRoute><AttendancePage /></ProtectedRoute>} />
         <Route path="/attendance/:userId" element={<AttendancePage />} />
         <Route path="/apply-leave" element={<ProtectedRoute><Leave /></ProtectedRoute>} />
         <Route path="/task-manager" element={<TaskManagerPage />} />
-        <Route path="/profile" element={<ProfileCard/>} />
-        <Route path="/swagger.html" element={<ApiDocsPage />} />
-        <Route path="/api-docs" element={<ApiDocsPage />} />
+        <Route path="/profile" element={<ProtectedRoute><ProfileCard /></ProtectedRoute>} />
 
         {/* Protected Admin Layout Wrapper */}
         <Route element={
@@ -97,6 +98,7 @@ function App() {
           <Route path="/attendances" element={<Attendance />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/comments" element={<CommentsPage />} />
+          <Route path="/letter-generator" element={<LetterGenerator />} />
           <Route path="/offer-letters" element={<OfferLetters />} />
           <Route path="/experience-letters" element={<ExperienceLetter />} />
           <Route path="/relieving-letters" element={<RelievingLetter />} />
@@ -112,9 +114,8 @@ function App() {
           <Route path="/holidays" element={<Holidays />} />
           <Route path="/payslip" element={<PayslipGenerator />} />
           <Route path="/leave-requests" element={<LeaveRequestsAdmin />} />
+          <Route path="/admin-profile" element={<AdminProfile />} />
           <Route path="/coming-soon/*" element={<ComingSoon/>}/>
-          <Route path="/api-docs" element={<ApiDocsPage />} />
-          <Route path="/swagger" element={<ApiDocsPage />} />
           {/* Add other admin routes here */}
           <Route path="/edit-user" element={<EditUser />} />
         </Route>

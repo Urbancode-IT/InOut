@@ -62,12 +62,23 @@ export const API_ENDPOINTS = {
   getRecentAttendanceLogs: `${BASE_URL}/api/admin/recent-attendance`,
   getRecentDashboardLogs:`${BASE_URL}/api/admin/recent-dashboard`,
   getAdminLetters: `${BASE_URL}/api/admin/letters`,
+  downloadAdminLetter: `${BASE_URL}/api/admin/letters/download`,
   sendDocumentEmail: `${BASE_URL}/api/admin/send-document-email`,
 
   // -----------------
-  // Pending Users
+  // Pending Users & Offer Onboarding
   // -----------------
   pendingUsers: `${BASE_URL}/api/admin/pending-users`,
+  pendingUserById: (id) => `${BASE_URL}/api/admin/pending-users/${id}`,
+  prepareOfferFromPending: (id) => `${BASE_URL}/api/admin/pending-users/${id}/prepare-offer`,
+  getOfferByUserId: (userId) => `${BASE_URL}/api/admin/offers/${userId}`,
+  saveOfferDetails: (userId) => `${BASE_URL}/api/admin/offers/${userId}/details`,
+  recordOfferGenerated: (userId) => `${BASE_URL}/api/admin/offers/${userId}/generated`,
+  sendOfferLetter: (userId) => `${BASE_URL}/api/admin/offers/${userId}/send`,
+  acceptOfferAsAdmin: (userId) => `${BASE_URL}/api/admin/offers/${userId}/accept`,
+  getOfferByToken: (token) => `${BASE_URL}/api/offers/accept/${token}`,
+  acceptOfferByToken: (token) => `${BASE_URL}/api/offers/accept/${token}`,
+  declineOfferByToken: (token) => `${BASE_URL}/api/offers/decline/${token}`,
   createUser: `${BASE_URL}/api/admin/create-user`,
   approveUser: `${BASE_URL}/api/admin/approve`,     // Use: `${approveUser}/${userId}`
   rejectUser: `${BASE_URL}/api/admin/reject`,       // Use: `${rejectUser}/${userId}`
@@ -115,8 +126,9 @@ export const API_ENDPOINTS = {
   // -----------------
   createPayslip: `${BASE_URL}/api/payslips`,              // POST new payslip
   getPayslips: `${BASE_URL}/api/payslips`,               // GET all payslips
-  // getPayslipById: (id) => `${BASE_URL}/api/payslips/${id}`, // GET payslip by ID
-  // getPayslipsByUser: (userId) => `${BASE_URL}/api/payslips/user/${userId}`, // GET all payslips for one user
+  getPayslipById: (id) => `${BASE_URL}/api/payslips/${id}`,
+  updatePayslip: (id) => `${BASE_URL}/api/payslips/${id}`,
+  deletePayslip: (id) => `${BASE_URL}/api/payslips/${id}`,
 };
 
 // -----------------

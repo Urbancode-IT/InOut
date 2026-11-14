@@ -12,11 +12,9 @@ import {
   FiLogOut,
   FiCheckCircle,
   FiFolder,
-  FiHelpCircle,
   FiChevronRight,
   FiClock,
   FiMapPin,
-  FiRefreshCw,
 } from 'react-icons/fi';
 
 export const APP_BUILD = 'v2026.09.15-payslip';
@@ -33,15 +31,7 @@ const menuItems = [
       { label: 'Pay History', path: '/salaryhistory' },
     ],
   },
-  {
-    label: 'Employees',
-    icon: <FiUsers />,
-    tone: 'green',
-    subItems: [
-      { label: 'User Profiles', path: '/all-users' },
-      { label: 'Add User', path: '/add-user' },
-    ],
-  },
+  { label: 'Employees', icon: <FiUsers />, path: '/all-users', tone: 'green' },
   {
     label: 'Attendance',
     icon: <FiCheckCircle />,
@@ -74,22 +64,11 @@ const menuItems = [
     tone: 'sky',
     subItems: [
       { label: 'All Letters', path: '/all-letters' },
-      { label: 'Offer Letters', path: '/offer-letters' },
-      { label: 'Experience Letters', path: '/experience-letters' },
-      { label: 'Relieving Letters', path: '/relieving-letters' },
-      { label: 'Internship Certificate', path: '/internship-letter' },
-      { label: 'Internship Offer', path: '/internship-offer' },
+      { label: 'Generate Letter', path: '/letter-generator' },
       { label: 'Upload Documents', path: '/upload-documents' },
     ],
   },
-  {
-    label: 'Export & Import',
-    icon: <FiRefreshCw />,
-    path: '/coming-soon/export',
-    tone: 'blue',
-  },
   { label: 'Settings', icon: <FiSettings />, path: '/coming-soon/settings', tone: 'gray' },
-  { label: 'Help & Support', icon: <FiHelpCircle />, path: '/api-docs', tone: 'purple' },
 ];
 
 const Sidebar = ({ expanded, onExpand, onCollapse }) => {

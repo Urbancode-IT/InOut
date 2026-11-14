@@ -1,0 +1,111 @@
+.admin-profile-page-shell {
+  max-width: 40rem;
+}
+
+.admin-profile-page-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.admin-profile-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-profile-page-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.admin-profile-page-subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.admin-profile-muted {
+  color: #6b7280;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.admin-profile-avatar-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.admin-profile-avatar-img,
+.admin-profile-avatar-fallback {
+  width: 6.5rem;
+  height: 6.5rem;
+  border-radius: 9999px;
+  object-fit: cover;
+}
+
+.admin-profile-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ede9fe;
+  color: #5b21b6;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.admin-profile-pic-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.admin-profile-upload-btn {
+  cursor: pointer;
+}
+
+.admin-profile-hint {
+  flex-basis: 100%;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  text-align: center;
+}
+
+.admin-profile-fields {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.admin-profile-field label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 0.35rem;
+}
+
+.admin-profile-role-badge {
+  display: inline-block;
+  margin: 0;
+  padding: 0.25rem 0.65rem;
+  border-radius: 9999px;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.admin-profile-page-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}

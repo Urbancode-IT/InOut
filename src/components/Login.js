@@ -72,7 +72,7 @@ function Login() {
               <div>
                 <p className="inout-open-title">In-Out is open</p>
                 <p className="inout-open-text">
-                  Admin unlocked your In-Out. You can check in and check out now.
+                  Your In-Out is unlocked. You can check in and check out now.
                 </p>
                 <button
                   type="button"

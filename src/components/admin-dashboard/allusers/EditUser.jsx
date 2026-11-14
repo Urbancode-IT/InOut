@@ -38,9 +38,12 @@ const EditUser = ({ userId, onClose, onUpdated, pageMode = false }) => {
     uan: '',
     esiNumber: '',
     bankDetails: {
+      accountHolderName: '',
       bankingName: '',
       bankAccountNumber: '',
       ifscCode: '',
+      branchName: '',
+      accountType: '',
       upiId: '',
     },
   });
@@ -309,7 +312,7 @@ const EditUser = ({ userId, onClose, onUpdated, pageMode = false }) => {
 
             <div>
               <div className="uc-form-field">
-                <label htmlFor="edit-salary">Salary</label>
+                <label htmlFor="edit-salary">Salary (Admin only)</label>
                 <input id="edit-salary" type="number" name="salary" value={form.salary} onChange={handleChange} placeholder="Salary" />
               </div>
               <div className="uc-form-field">
@@ -534,6 +537,10 @@ const EditUser = ({ userId, onClose, onUpdated, pageMode = false }) => {
             <h3 style={{ margin: '0 0 1rem', fontSize: '1rem', fontWeight: 600 }}>Banking Details</h3>
             <div className="uc-form-grid-3">
               <div className="uc-form-field" style={{ marginBottom: 0 }}>
+                <label>Account Holder Name</label>
+                <input type="text" name="accountHolderName" value={form.bankDetails.accountHolderName || ''} onChange={handleBankChange} placeholder="Account Holder Name" />
+              </div>
+              <div className="uc-form-field" style={{ marginBottom: 0 }}>
                 <label>Bank Name</label>
                 <input type="text" name="bankingName" value={form.bankDetails.bankingName || ''} onChange={handleBankChange} placeholder="Bank Name" />
               </div>
@@ -544,6 +551,18 @@ const EditUser = ({ userId, onClose, onUpdated, pageMode = false }) => {
               <div className="uc-form-field" style={{ marginBottom: 0 }}>
                 <label>IFSC Code</label>
                 <input type="text" name="ifscCode" value={form.bankDetails.ifscCode || ''} onChange={handleBankChange} placeholder="IFSC Code" />
+              </div>
+              <div className="uc-form-field" style={{ marginBottom: 0 }}>
+                <label>Branch Name</label>
+                <input type="text" name="branchName" value={form.bankDetails.branchName || ''} onChange={handleBankChange} placeholder="Branch Name" />
+              </div>
+              <div className="uc-form-field" style={{ marginBottom: 0 }}>
+                <label>Account Type</label>
+                <select name="accountType" value={form.bankDetails.accountType || ''} onChange={handleBankChange}>
+                  <option value="">Select Account Type</option>
+                  <option value="Savings">Savings</option>
+                  <option value="Current">Current</option>
+                </select>
               </div>
             </div>
             <div className="uc-form-field">

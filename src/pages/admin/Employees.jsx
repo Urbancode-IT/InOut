@@ -29,6 +29,10 @@ import axios from 'axios';
 import { API_ENDPOINTS } from '../../utils/api';
 import Loader from '../../components/admin-dashboard/common/Loader';
 import { toast } from 'react-toastify';
+import {
+  EMPLOYMENT_TYPE_OPTIONS,
+  normalizeEmploymentType,
+} from '../../utils/registrationConstants';
 
 
 
@@ -41,36 +45,90 @@ const EmployeeSchedule = () => {
   const theme = useTheme();
 
   useEffect(() => {
+    const defaultDay = (isLeave = false) => ({
+      start: '09:00',
+      end: '17:00',
+      isLeave,
+    });
+    const defaultWeeklySchedule = () =>
+      days.reduce((acc, day) => {
+        acc[day] = defaultDay(day === 'Sunday');
+        return acc;
+      }, {});
+
+    const normalize = (emp) => {
+      if (!emp) return emp;
+      const ws = emp.weeklySchedule ? { ...emp.weeklySchedule } : {};
+      Object.keys(ws).forEach((day) => {
+        const ds = ws[day] ? { ...ws[day] } : {};
+        ['start', 'end'].forEach((k) => {
+          const v = ds[k];
+          if (typeof v === 'string' && v.includes('T')) {
+            const date = new Date(v);
+            if (!isNaN(date.getTime())) {
+              const hh = String(date.getHours()).padStart(2, '0');
+              const mm = String(date.getMinutes()).padStart(2, '0');
+              ds[k] = `${hh}:${mm}`;
+            }
+          }
+        });
+        ws[day] = ds;
+      });
+      return { ...emp, weeklySchedule: ws };
+    };
+
     const fetchEmployees = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await axios.get(API_ENDPOINTS.getSchedules, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        // Normalize any datetime strings to HH:MM so the time inputs are controlled correctly
-        const normalize = (emp) => {
-          if (!emp) return emp;
-          const ws = emp.weeklySchedule ? { ...emp.weeklySchedule } : {};
-          Object.keys(ws).forEach(day => {
-            const ds = ws[day] ? { ...ws[day] } : {};
-            ['start', 'end'].forEach(k => {
-              const v = ds[k];
-              if (typeof v === 'string' && v.includes('T')) {
-                // try to extract HH:MM from ISO or full datetime
-                const date = new Date(v);
-                if (!isNaN(date.getTime())) {
-                  const hh = String(date.getHours()).padStart(2, '0');
-                  const mm = String(date.getMinutes()).padStart(2, '0');
-                  ds[k] = `${hh}:${mm}`;
-                }
-              }
-            });
-            ws[day] = ds;
-          });
-          return { ...emp, weeklySchedule: ws };
-        };
+        const headers = { Authorization: `Bearer ${token}` };
 
-        setEmployees((res.data || []).map(normalize));
+        // Schedules API used to hide people when isActive wasn't exactly true.
+        // Merge with /users so every active employee appears (like Subhiksha).
+        const [schedulesRes, usersRes] = await Promise.all([
+          axios.get(API_ENDPOINTS.getSchedules, { headers }),
+          axios.get(API_ENDPOINTS.getUsers, { headers }),
+        ]);
+
+        const schedules = (schedulesRes.data || []).map(normalize);
+        const byUserId = new Map();
+        schedules.forEach((sch) => {
+          const uid = sch.user?._id || sch.user;
+          if (uid) byUserId.set(String(uid), sch);
+        });
+
+        const activeUsers = (usersRes.data || []).filter(
+          (u) => u.role === 'employee' && u.isActive !== false
+        );
+
+        const merged = activeUsers
+          .map((user) => {
+            const existing = byUserId.get(String(user._id));
+            if (existing) {
+              return {
+                ...existing,
+                user: existing.user || user,
+              };
+            }
+            return normalize({
+              _id: user._id,
+              user,
+              weeklySchedule: defaultWeeklySchedule(),
+              employmentType: normalizeEmploymentType(user.employmentType),
+              salary: user.salary || 0,
+              isNewSchedule: true,
+            });
+          })
+          .map((emp) => ({
+            ...emp,
+            employmentType: normalizeEmploymentType(
+              emp.employmentType || emp.user?.employmentType
+            ),
+          }))
+          .sort((a, b) =>
+            String(a.user?.name || '').localeCompare(String(b.user?.name || ''))
+          );
+
+        setEmployees(merged);
       } catch (error) {
         console.error('Error fetching employees:', error);
       } finally {
@@ -96,15 +154,55 @@ const EmployeeSchedule = () => {
     setEmployees(prev => prev.map(emp => emp._id === empId ? { ...emp, salary: parseFloat(value) || 0 } : emp));
   };
 
+  const handleEmploymentTypeChange = (empId, value) => {
+    setEmployees((prev) =>
+      prev.map((emp) =>
+        emp._id === empId
+          ? { ...emp, employmentType: normalizeEmploymentType(value) }
+          : emp
+      )
+    );
+  };
+
   const saveChanges = async (employee) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(API_ENDPOINTS.putUserSchedule(employee._id), {
-        salary: employee.salary,
-        weeklySchedule: employee.weeklySchedule,
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const userId = employee.user?._id || employee.user;
+      const employmentType = normalizeEmploymentType(employee.employmentType);
+      const res = await axios.put(
+        API_ENDPOINTS.putUserSchedule(employee._id),
+        {
+          salary: employee.salary,
+          weeklySchedule: employee.weeklySchedule,
+          employmentType,
+          user: userId,
+          userId,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      // After first save, replace temp user-id key with real schedule _id
+      if (res.data?._id) {
+        setEmployees((prev) =>
+          prev.map((emp) =>
+            emp._id === employee._id
+              ? {
+                  ...emp,
+                  _id: res.data._id,
+                  weeklySchedule: res.data.weeklySchedule || emp.weeklySchedule,
+                  employmentType: normalizeEmploymentType(
+                    res.data.employmentType || employmentType
+                  ),
+                  salary: res.data.salary ?? emp.salary,
+                  isNewSchedule: false,
+                }
+              : emp
+          )
+        );
+      }
+
       toast.success('Saved: Changes saved successfully');
     } catch (err) {
       console.error(err);
@@ -219,6 +317,34 @@ const EmployeeSchedule = () => {
                     </Box>
                     
                   </Divider>
+
+                  <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+                    <Typography variant="subtitle2" sx={{ fontFamily: 'Montserrat', color: 'text.secondary' }}>
+                      Employment Type
+                    </Typography>
+                    <TextField
+                      select
+                      size="small"
+                      value={normalizeEmploymentType(emp.employmentType)}
+                      onChange={(e) => handleEmploymentTypeChange(emp._id, e.target.value)}
+                      SelectProps={{ native: true }}
+                      sx={{
+                        minWidth: 160,
+                        '& .MuiInputBase-input': { fontFamily: 'Montserrat' },
+                      }}
+                    >
+                      {EMPLOYMENT_TYPE_OPTIONS.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </TextField>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'Montserrat' }}>
+                      {normalizeEmploymentType(emp.employmentType) === 'Part-Time'
+                        ? 'Flexible days and shorter shifts are supported.'
+                        : 'Standard full-time weekly hours.'}
+                    </Typography>
+                  </Box>
 
                   <Paper elevation={1} sx={{ p: 2, borderRadius: 2 }}>
                     {/* Header row */}
