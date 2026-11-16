@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { API_ENDPOINTS } from '../utils/api';
 import { BRANCH_OPTIONS } from '../utils/branches';
+import { alertToast } from '../utils/interactiveToast';
 import {
   BLOOD_GROUP_OPTIONS,
   ACCOUNT_TYPE_OPTIONS,
@@ -23,6 +24,11 @@ import {
 
 const PROFILE_MAX_BYTES = 2 * 1024 * 1024;
 const DOC_MAX_BYTES = 5 * 1024 * 1024;
+
+const isValidEmail = (value) =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+
+const normalizeAadharDigits = (value) => String(value || '').replace(/\D/g, '').slice(0, 12);
 
 export default function RegisterMultiStep() {
   const initialForm = {
@@ -77,6 +83,8 @@ export default function RegisterMultiStep() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
+  const availabilityPopupRef = useRef({});
+  const availabilityTimerRef = useRef(null);
 
   const stepsCount = 6; // Personal, Job, Schedule, Bank, Documents, Review
 
@@ -89,6 +97,112 @@ export default function RegisterMultiStep() {
     });
   };
 
+  const showConflictPopup = async (field, message) => {
+    const key = `${field}:${message}`;
+    if (availabilityPopupRef.current[key]) return;
+    availabilityPopupRef.current[key] = true;
+    try {
+      await alertToast({
+        title: 'Already registered',
+        text: message,
+        confirmText: 'OK',
+        tone: 'danger',
+      });
+    } finally {
+      availabilityPopupRef.current[key] = false;
+    }
+  };
+
+  const checkAvailability = async (fields, { showPopup = true } = {}) => {
+    const params = {};
+    if (fields.email) params.email = String(fields.email).trim().toLowerCase();
+    if (fields.phone) params.phone = String(fields.phone).replace(/\D/g, '');
+    if (fields.aadharNumber) {
+      params.aadharNumber = normalizeAadharDigits(fields.aadharNumber);
+    }
+    if (!params.email && !params.phone && !params.aadharNumber) {
+      return { available: true, conflicts: {} };
+    }
+
+    try {
+      const { data } = await axios.get(API_ENDPOINTS.checkAvailability, { params });
+      const conflicts = data?.conflicts || {};
+
+      if (conflicts.email) {
+        setFieldErrors((prev) => ({ ...prev, email: conflicts.email }));
+        if (showPopup) await showConflictPopup('email', conflicts.email);
+      }
+      if (conflicts.phone) {
+        setFieldErrors((prev) => ({ ...prev, phone: conflicts.phone }));
+        if (showPopup) await showConflictPopup('phone', conflicts.phone);
+      }
+      if (conflicts.aadharNumber) {
+        setFieldErrors((prev) => ({
+          ...prev,
+          aadharNumber: conflicts.aadharNumber,
+        }));
+        if (showPopup) await showConflictPopup('aadharNumber', conflicts.aadharNumber);
+      }
+
+      return {
+        available: Boolean(data?.available) && Object.keys(conflicts).length === 0,
+        conflicts,
+      };
+    } catch (err) {
+      console.error('Availability check failed:', err);
+      return { available: true, conflicts: {} };
+    }
+  };
+
+  const handleAvailabilityBlur = async (field) => {
+    if (field === 'email') {
+      const email = String(formData.email || '').trim();
+      if (!email) return;
+      if (!isValidEmail(email)) {
+        setFieldErrors((prev) => ({
+          ...prev,
+          email: 'Please enter a valid email address.',
+        }));
+        return;
+      }
+      clearFieldError('email');
+      await checkAvailability({ email });
+      return;
+    }
+
+    if (field === 'phone') {
+      const phone = String(formData.phone || '').replace(/\D/g, '');
+      if (!phone) return;
+      if (!isValidMobile(phone)) {
+        setFieldErrors((prev) => ({
+          ...prev,
+          phone: 'Please enter a valid 10-digit mobile number.',
+        }));
+        return;
+      }
+      clearFieldError('phone');
+      await checkAvailability({ phone });
+      return;
+    }
+
+    if (field === 'aadharNumber') {
+      const aadharNumber = normalizeAadharDigits(formData.aadharNumber);
+      if (!aadharNumber) {
+        clearFieldError('aadharNumber');
+        return;
+      }
+      if (aadharNumber.length !== 12) {
+        setFieldErrors((prev) => ({
+          ...prev,
+          aadharNumber: 'Aadhaar number must be 12 digits.',
+        }));
+        return;
+      }
+      clearFieldError('aadharNumber');
+      await checkAvailability({ aadharNumber });
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     let nextValue = value;
@@ -97,7 +211,34 @@ export default function RegisterMultiStep() {
       nextValue = value.replace(/\D/g, '').slice(0, 10);
     }
 
+    if (name === 'aadharNumber') {
+      nextValue = normalizeAadharDigits(value);
+    }
+
     setFormData((prev) => ({ ...prev, [name]: nextValue }));
+
+    if (name === 'email') {
+      if (nextValue.trim()) clearFieldError('email');
+      if (availabilityTimerRef.current) clearTimeout(availabilityTimerRef.current);
+      const emailValue = nextValue.trim();
+      if (isValidEmail(emailValue)) {
+        availabilityTimerRef.current = setTimeout(() => {
+          checkAvailability({ email: emailValue });
+        }, 450);
+      }
+      return;
+    }
+
+    if (name === 'aadharNumber') {
+      if (!nextValue || nextValue.length === 12) clearFieldError('aadharNumber');
+      if (availabilityTimerRef.current) clearTimeout(availabilityTimerRef.current);
+      if (nextValue.length === 12) {
+        availabilityTimerRef.current = setTimeout(() => {
+          checkAvailability({ aadharNumber: nextValue });
+        }, 450);
+      }
+      return;
+    }
 
     if (name === 'phone') {
       if (!nextValue) {
@@ -109,6 +250,10 @@ export default function RegisterMultiStep() {
         }));
       } else {
         clearFieldError('phone');
+        if (availabilityTimerRef.current) clearTimeout(availabilityTimerRef.current);
+        availabilityTimerRef.current = setTimeout(() => {
+          checkAvailability({ phone: nextValue });
+        }, 450);
       }
       return;
     }
@@ -281,6 +426,15 @@ export default function RegisterMultiStep() {
     return mimeOk && ext === 'pdf';
   };
 
+  const showFileTooLargePopup = (label, maxMb) => {
+    alertToast({
+      title: 'File is too large',
+      text: `Your ${label} is too large. Please upload a file under ${maxMb} MB.`,
+      confirmText: 'OK',
+      tone: 'danger',
+    });
+  };
+
   const handleFileChange = (field, file) => {
     if (!file) {
       setFiles((prev) => ({ ...prev, [field]: null }));
@@ -290,7 +444,12 @@ export default function RegisterMultiStep() {
 
     if (field === 'profilePic') {
       if (!isImageFile(file)) {
-        toast.warning('Profile picture must be a JPG or PNG image');
+        alertToast({
+          title: 'Invalid file',
+          text: 'Profile picture must be a JPG or PNG image.',
+          confirmText: 'OK',
+          tone: 'danger',
+        });
         setFieldErrors((prev) => ({
           ...prev,
           profilePic: 'Please upload a JPG or PNG profile photo.',
@@ -298,7 +457,7 @@ export default function RegisterMultiStep() {
         return false;
       }
       if (file.size > PROFILE_MAX_BYTES) {
-        toast.warning('Profile picture must be under 2 MB');
+        showFileTooLargePopup('profile picture', 2);
         setFieldErrors((prev) => ({
           ...prev,
           profilePic: 'Profile picture must be under 2 MB.',
@@ -311,7 +470,12 @@ export default function RegisterMultiStep() {
 
     if (field === 'resume') {
       if (!isPdfFile(file)) {
-        toast.warning('Resume must be a PDF file only');
+        alertToast({
+          title: 'Invalid file',
+          text: 'Resume must be a PDF file only.',
+          confirmText: 'OK',
+          tone: 'danger',
+        });
         setFieldErrors((prev) => ({
           ...prev,
           resume: 'Please upload your resume as a PDF file.',
@@ -319,7 +483,7 @@ export default function RegisterMultiStep() {
         return false;
       }
       if (file.size > DOC_MAX_BYTES) {
-        toast.warning('Resume must be under 5 MB');
+        showFileTooLargePopup('resume', 5);
         setFieldErrors((prev) => ({
           ...prev,
           resume: 'Resume must be under 5 MB.',
@@ -331,7 +495,12 @@ export default function RegisterMultiStep() {
 
     if (field === 'aadharCard') {
       if (!isImageFile(file) && !isPdfFile(file)) {
-        toast.warning('Aadhaar card must be JPG, PNG, or PDF');
+        alertToast({
+          title: 'Invalid file',
+          text: 'Aadhaar card must be JPG, PNG, or PDF.',
+          confirmText: 'OK',
+          tone: 'danger',
+        });
         setFieldErrors((prev) => ({
           ...prev,
           aadharCard: 'Please upload Aadhaar as JPG, PNG, or PDF.',
@@ -339,7 +508,7 @@ export default function RegisterMultiStep() {
         return false;
       }
       if (file.size > DOC_MAX_BYTES) {
-        toast.warning('Aadhaar card must be under 5 MB');
+        showFileTooLargePopup('Aadhaar card', 5);
         setFieldErrors((prev) => ({
           ...prev,
           aadharCard: 'Aadhaar card must be under 5 MB.',
@@ -510,11 +679,37 @@ export default function RegisterMultiStep() {
     return { ok: Object.keys(errors).length === 0, errors };
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!validateStep()) {
       toast.warning('Please fix the highlighted fields before continuing.');
       return;
     }
+
+    if (step === 1) {
+      const { available, conflicts } = await checkAvailability(
+        { email: formData.email, phone: formData.phone },
+        { showPopup: true }
+      );
+      if (!available) {
+        setFieldErrors((prev) => ({ ...prev, ...conflicts }));
+        return;
+      }
+    }
+
+    if (step === 5) {
+      const aadharNumber = normalizeAadharDigits(formData.aadharNumber);
+      if (aadharNumber) {
+        const { available, conflicts } = await checkAvailability(
+          { aadharNumber },
+          { showPopup: true }
+        );
+        if (!available) {
+          setFieldErrors((prev) => ({ ...prev, ...conflicts }));
+          return;
+        }
+      }
+    }
+
     next();
   };
 
@@ -626,6 +821,21 @@ export default function RegisterMultiStep() {
 
     setIsSubmitting(true);
     try {
+      const { available, conflicts } = await checkAvailability(
+        {
+          email: formData.email,
+          phone: formData.phone,
+          aadharNumber: formData.aadharNumber,
+        },
+        { showPopup: true }
+      );
+      if (!available) {
+        setFieldErrors((prev) => ({ ...prev, ...conflicts }));
+        if (conflicts.email || conflicts.phone) setStep(1);
+        else if (conflicts.aadharNumber) setStep(5);
+        return;
+      }
+
       const legacy = syncLegacyExperienceFields();
       const fd = new FormData();
       fd.append('name', formData.name);
@@ -689,16 +899,52 @@ export default function RegisterMultiStep() {
 
       await axios.post(API_ENDPOINTS.register, fd);
 
-      toast.success('Submitted: Registration submitted and is pending admin approval');
       setFormData(initialForm);
       setFiles({ profilePic: null, resume: null, aadharCard: null });
       setPreviews({ profilePic: '' });
       setFieldErrors({});
       setStep(1);
 
+      await alertToast({
+        title: 'Application submitted',
+        text: 'Your application is successfully submitted. Our team will review it and get back to you soon.',
+        confirmText: 'OK',
+        tone: 'primary',
+      });
     } catch (error) {
       console.error(error);
-      toast.error(`Error: ${error.response?.data?.error || error.response?.data?.message || 'Failed to submit registration'}`);
+      const message =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        'Failed to submit registration';
+      const isDuplicate = /already|in use|pending approval|exists/i.test(message);
+      if (isDuplicate) {
+        const fieldMessage = /mobile|phone|number/i.test(message)
+          ? 'This mobile number already exists. Please use a different number.'
+          : /aadhaar|aadhar/i.test(message)
+            ? 'This Aadhaar number already exists. Please check and try again.'
+            : 'This email ID already exists. Please use a different email.';
+        const fieldKey = /mobile|phone|number/i.test(message)
+          ? 'phone'
+          : /aadhaar|aadhar/i.test(message)
+            ? 'aadharNumber'
+            : 'email';
+        setFieldErrors((prev) => ({ ...prev, [fieldKey]: fieldMessage }));
+        setStep(fieldKey === 'aadharNumber' ? 5 : 1);
+        await alertToast({
+          title: 'Already registered',
+          text: fieldMessage,
+          confirmText: 'OK',
+          tone: 'danger',
+        });
+      } else {
+        await alertToast({
+          title: 'Submission failed',
+          text: message,
+          confirmText: 'OK',
+          tone: 'danger',
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -726,6 +972,7 @@ export default function RegisterMultiStep() {
             <PersonalDetails
               formData={formData}
               handleChange={handleChange}
+              onFieldBlur={handleAvailabilityBlur}
               showPassword={showPassword}
               setShowPassword={setShowPassword}
               fieldErrors={fieldErrors}
@@ -772,6 +1019,7 @@ export default function RegisterMultiStep() {
             <DocumentsStep
               formData={formData}
               handleChange={handleChange}
+              onFieldBlur={handleAvailabilityBlur}
               files={files}
               previews={previews}
               onFileChange={handleFileChange}
@@ -846,7 +1094,14 @@ function inputClass(hasError) {
   }`;
 }
 
-function PersonalDetails({ formData, handleChange, showPassword, setShowPassword, fieldErrors }) {
+function PersonalDetails({
+  formData,
+  handleChange,
+  onFieldBlur,
+  showPassword,
+  setShowPassword,
+  fieldErrors,
+}) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       <Input
@@ -863,6 +1118,7 @@ function PersonalDetails({ formData, handleChange, showPassword, setShowPassword
         name="email"
         value={formData.email}
         onChange={handleChange}
+        onBlur={() => onFieldBlur?.('email')}
         type="email"
         icon={<FiMail />}
         required
@@ -901,6 +1157,7 @@ function PersonalDetails({ formData, handleChange, showPassword, setShowPassword
         name="phone"
         value={formData.phone}
         onChange={handleChange}
+        onBlur={() => onFieldBlur?.('phone')}
         icon={<FiPhone />}
         required
         error={fieldErrors.phone}
@@ -1462,7 +1719,15 @@ function DocumentUploadRow({ preview, accept, onFileChange, hint, selectedName, 
   );
 }
 
-function DocumentsStep({ formData, handleChange, files, previews, onFileChange, fieldErrors }) {
+function DocumentsStep({
+  formData,
+  handleChange,
+  onFieldBlur,
+  files,
+  previews,
+  onFileChange,
+  fieldErrors,
+}) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-gray-600">
@@ -1525,9 +1790,15 @@ function DocumentsStep({ formData, handleChange, files, previews, onFileChange, 
             name="aadharNumber"
             value={formData.aadharNumber}
             onChange={handleChange}
-            placeholder="XXXX XXXX XXXX"
-            className="block w-full rounded-md border border-gray-300 px-3 py-2"
+            onBlur={() => onFieldBlur?.('aadharNumber')}
+            inputMode="numeric"
+            maxLength={12}
+            placeholder="12-digit Aadhaar number"
+            className={`block w-full rounded-md border px-3 py-2 ${
+              fieldErrors.aadharNumber ? 'border-red-500' : 'border-gray-300'
+            }`}
           />
+          <FieldError message={fieldErrors.aadharNumber} />
         </div>
       </div>
     </div>
@@ -1653,6 +1924,7 @@ function Input({
   name,
   value,
   onChange,
+  onBlur,
   type = 'text',
   icon,
   required = false,
@@ -1671,6 +1943,7 @@ function Input({
         name={name}
         value={value}
         onChange={onChange}
+        onBlur={onBlur}
         inputMode={inputMode}
         maxLength={maxLength}
         pattern={pattern}

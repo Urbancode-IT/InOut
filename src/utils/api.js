@@ -19,6 +19,7 @@ export const API_ENDPOINTS = {
   // -----------------
   login: `${BASE_URL}/auth/login`,
   register: `${BASE_URL}/auth/register`,
+  checkAvailability: `${BASE_URL}/auth/check-availability`,
   logout: `${BASE_URL}/auth/logout`,
   // -----------------
   // Users
