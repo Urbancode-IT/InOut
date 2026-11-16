@@ -171,13 +171,21 @@ const Sidebar = ({ expanded, onExpand, onCollapse }) => {
               key={item.label}
               to={item.path}
               className={({ isActive }) =>
-                `admin-nav-link admin-nav-link-v2${isActive ? ' active' : ''}`
+                `admin-nav-link admin-nav-link-v2${isActive ? ' active' : ''}${
+                  badge != null ? ' has-badge' : ''
+                }`
               }
               title={item.label}
             >
-              <span className={`admin-nav-icon tone-${item.tone}`}>{item.icon}</span>
+              <span className="admin-nav-icon-wrap">
+                <span className={`admin-nav-icon tone-${item.tone}`}>{item.icon}</span>
+              </span>
               <span className="admin-nav-label">{item.label}</span>
-              {badge != null && <span className="admin-nav-badge">{badge}</span>}
+              {badge != null && (
+                <span className="admin-nav-badge" aria-label={`${badge} pending`}>
+                  {badge > 99 ? '99+' : badge}
+                </span>
+              )}
             </NavLink>
           );
         })}

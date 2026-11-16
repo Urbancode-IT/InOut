@@ -582,7 +582,6 @@
 
 .admin-nav-label,
 .admin-nav-chevron,
-.admin-nav-badge,
 .admin-build-tag {
   display: none;
 }
@@ -597,11 +596,6 @@
 .admin-layout.sidebar-expanded .admin-nav-chevron,
 .admin-sidebar-v2.is-expanded .admin-nav-chevron {
   display: inline-block;
-}
-
-.admin-layout.sidebar-expanded .admin-nav-badge,
-.admin-sidebar-v2.is-expanded .admin-nav-badge {
-  display: inline-flex;
 }
 
 .admin-layout.sidebar-expanded .admin-build-tag,
@@ -665,6 +659,24 @@
   color: #374151;
 }
 
+/* Collapsed rail: uniform square hit targets */
+.admin-layout:not(.sidebar-expanded) .admin-nav-btn-v2,
+.admin-layout:not(.sidebar-expanded) .admin-nav-link-v2,
+.admin-layout:not(.sidebar-expanded) .admin-nav-logout,
+.admin-sidebar-v2:not(.is-expanded) .admin-nav-btn-v2,
+.admin-sidebar-v2:not(.is-expanded) .admin-nav-link-v2,
+.admin-sidebar-v2:not(.is-expanded) .admin-nav-logout {
+  width: 2.85rem;
+  height: 2.85rem;
+  max-width: 2.85rem;
+  padding: 0;
+  gap: 0;
+  margin-inline: auto;
+  justify-content: center;
+  align-items: center;
+  overflow: visible;
+}
+
 .admin-nav-link-v2.active {
   background: #6d28d9;
   color: #fff;
@@ -672,13 +684,23 @@
 }
 
 .admin-nav-link-v2.active .admin-nav-icon {
-  background: rgba(255, 255, 255, 0.18);
+  background: transparent;
   color: #fff;
 }
 
 .admin-nav-link-v2.active .admin-nav-badge {
   background: #fff;
   color: #6d28d9;
+}
+
+.admin-nav-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 1.85rem;
+  height: 1.85rem;
 }
 
 .admin-nav-icon {
@@ -690,6 +712,45 @@
   justify-content: center;
   font-size: 1rem;
   flex-shrink: 0;
+}
+
+/* Collapsed: badge overlays icon corner — row stays square */
+.admin-nav-link-v2.has-badge {
+  position: relative;
+}
+
+.admin-layout:not(.sidebar-expanded) .admin-nav-link-v2.has-badge .admin-nav-badge,
+.admin-sidebar-v2:not(.is-expanded) .admin-nav-link-v2.has-badge .admin-nav-badge {
+  position: absolute;
+  top: 0.15rem;
+  right: 0.15rem;
+  z-index: 2;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.28rem;
+  font-size: 0.62rem;
+  line-height: 1;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+/* Expanded: badge after label */
+.admin-layout.sidebar-expanded .admin-nav-link-v2.has-badge .admin-nav-badge,
+.admin-sidebar-v2.is-expanded .admin-nav-link-v2.has-badge .admin-nav-badge {
+  position: static;
+  margin-left: auto;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.35rem;
+  font-size: 0.7rem;
+  box-shadow: none;
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.admin-layout.sidebar-expanded .admin-nav-link-v2.active.has-badge .admin-nav-badge,
+.admin-sidebar-v2.is-expanded .admin-nav-link-v2.active.has-badge .admin-nav-badge {
+  background: #fff;
+  color: #6d28d9;
 }
 
 .admin-nav-icon.tone-purple { background: #f3e8ff; color: #7c3aed; }
@@ -721,13 +782,14 @@
   height: 1.35rem;
   padding: 0 0.35rem;
   border-radius: 9999px;
-  background: #ede9fe;
-  color: #6d28d9;
+  background: #6d28d9;
+  color: #fff;
   font-size: 0.7rem;
   font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
 }
 
 .admin-nav-footer-v2 {
