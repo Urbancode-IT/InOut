@@ -913,10 +913,29 @@ export default function RegisterMultiStep() {
       });
     } catch (error) {
       console.error(error);
-      const message =
-        error.response?.data?.error ||
-        error.response?.data?.message ||
-        'Failed to submit registration';
+      setIsSubmitting(false);
+      const status = error.response?.status;
+      const data = error.response?.data;
+      let message =
+        (typeof data === 'string' && data.trim()) ||
+        data?.error ||
+        data?.message ||
+        '';
+      if (!message) {
+        if (!error.response) {
+          message =
+            error.code === 'ECONNABORTED'
+              ? 'Upload timed out. Please use smaller files (profile ≤2MB, resume/aadhaar ≤5MB) and try again.'
+              : 'Cannot reach the server. Check your internet connection and try again.';
+        } else if (status === 413) {
+          message =
+            'Upload too large for the server. Keep profile ≤2MB and resume/aadhaar ≤5MB.';
+        } else if (status >= 500) {
+          message = `Server error (${status}). Please try again in a moment.`;
+        } else {
+          message = `Failed to submit registration${status ? ` (${status})` : ''}.`;
+        }
+      }
       const isDuplicate = /already|in use|pending approval|exists/i.test(message);
       if (isDuplicate) {
         const fieldMessage = /mobile|phone|number/i.test(message)
